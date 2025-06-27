@@ -1,0 +1,18 @@
+{
+  "type": "postgres",
+  "host": "localhost",
+  "port": 5432,
+  "username": "postgres",
+  "password": "postgres",
+  "database": "ssc_db",
+  "entities": ["dist/**/*.entity{.ts,.js}"],
+  "migrations": ["dist/migrations/*{.ts,.js}"],
+  "migrationsTableName": "migrations_typeorm",
+  "migrationsRun": false,
+  "synchronize": false,
+  "logging": true,
+  "logger": "file",
+  "cli": {
+    "migrationsDir": "src/migrations"
+  }
+} 

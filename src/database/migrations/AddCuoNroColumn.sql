@@ -1,0 +1,4 @@
+
+-- Agregar la columna CUO_NRO a la tabla TBL_CUO
+ALTER TABLE "SSC"."TBL_CUO"
+ADD COLUMN "CUO_NRO" VARCHAR(20) NOT NULL; 

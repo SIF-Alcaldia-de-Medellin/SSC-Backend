@@ -4,6 +4,7 @@ import { SeguimientoActividad } from './seguimiento-actividad.entity';
 import { Actividad } from '../actividades/actividad.entity';
 import { SeguimientoActividadService } from './seguimiento-actividad.service';
 import { SeguimientoActividadController } from './seguimiento-actividad.controller';
+import { Contrato } from '../contratos/contrato.entity';
 
 /**
  * Módulo de Seguimiento de Actividad
@@ -19,7 +20,8 @@ import { SeguimientoActividadController } from './seguimiento-actividad.controll
   imports: [
     TypeOrmModule.forFeature([
       SeguimientoActividad,
-      Actividad
+      Actividad,
+      Contrato
     ])
   ],
   providers: [SeguimientoActividadService],

@@ -32,37 +32,55 @@ export class SeguimientoActividadResponseDto {
   };
 
   /**
-   * Avance físico de la actividad (cantidad ejecutada)
+   * Avance físico de la actividad en este seguimiento (cantidad ejecutada)
    */
   @ApiProperty({ 
-    description: 'Avance físico de la actividad (cantidad ejecutada)',
+    description: 'Avance físico de la actividad en este seguimiento (cantidad ejecutada)',
     example: 45.50
   })
   avanceFisico: number;
 
   /**
-   * Porcentaje de avance físico
+   * Avance físico acumulado hasta este seguimiento
    */
   @ApiProperty({ 
-    description: 'Porcentaje de avance físico respecto a la meta',
+    description: 'Avance físico acumulado hasta este seguimiento',
+    example: 150.75
+  })
+  avanceAcumulado: number;
+
+  /**
+   * Porcentaje de avance físico acumulado
+   */
+  @ApiProperty({ 
+    description: 'Porcentaje de avance físico acumulado respecto a la meta',
     example: 75.83
   })
   porcentajeAvance?: number;
 
   /**
-   * Costo aproximado de la actividad
+   * Costo aproximado de la actividad en este seguimiento
    */
   @ApiProperty({ 
-    description: 'Costo aproximado de la actividad',
+    description: 'Costo aproximado de la actividad en este seguimiento',
     example: 15000000.00
   })
   costoAproximado: number;
 
   /**
-   * Porcentaje de ejecución financiera
+   * Costo aproximado acumulado hasta este seguimiento
    */
   @ApiProperty({ 
-    description: 'Porcentaje de ejecución financiera respecto al valor proyectado',
+    description: 'Costo aproximado acumulado hasta este seguimiento',
+    example: 45000000.00
+  })
+  costoAcumulado: number;
+
+  /**
+   * Porcentaje de ejecución financiera acumulado
+   */
+  @ApiProperty({ 
+    description: 'Porcentaje de ejecución financiera acumulado respecto al valor proyectado',
     example: 68.25
   })
   porcentajeEjecucionFinanciera?: number;

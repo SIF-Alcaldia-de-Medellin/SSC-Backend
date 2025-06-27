@@ -22,7 +22,7 @@ export class ActividadesController {
    * Crea una nueva actividad
    */
   @Post()
-  @Roles(RolUsuario.ADMIN)
+  @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
   @ApiOperation({ summary: 'Crear una nueva actividad' })
   @ApiResponse({ 
     status: 201, 
@@ -31,7 +31,7 @@ export class ActividadesController {
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso al CUO especificado' })
   create(@Request() req, @Body() createActividadDto: CreateActividadDto): Promise<ActividadResponseDto> {
     return this.actividadesService.create(createActividadDto, req.user.cedula, req.user.rol);
   }
@@ -44,11 +44,10 @@ export class ActividadesController {
   @ApiOperation({ summary: 'Obtener todas las actividades' })
   @ApiResponse({ 
     status: 200, 
-    description: 'Lista de actividades',
+    description: 'Lista de actividades. Para supervisores, solo muestra las actividades de sus contratos.',
     type: [ActividadResponseDto]
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
   findAll(@Request() req): Promise<ActividadResponseDto[]> {
     return this.actividadesService.findAll(req.user.cedula, req.user.rol);
   }
@@ -65,7 +64,7 @@ export class ActividadesController {
     type: ActividadResponseDto
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a esta actividad' })
   @ApiResponse({ status: 404, description: 'Actividad no encontrada' })
   findOne(@Request() req, @Param('id', ParseIntPipe) id: number): Promise<ActividadResponseDto> {
     return this.actividadesService.findOne(id, req.user.cedula, req.user.rol);
@@ -75,7 +74,7 @@ export class ActividadesController {
    * Actualiza una actividad
    */
   @Patch(':id')
-  @Roles(RolUsuario.ADMIN)
+  @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
   @ApiOperation({ summary: 'Actualizar una actividad' })
   @ApiResponse({ 
     status: 200, 
@@ -84,7 +83,7 @@ export class ActividadesController {
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a esta actividad' })
   @ApiResponse({ status: 404, description: 'Actividad no encontrada' })
   update(
     @Request() req,
@@ -102,7 +101,7 @@ export class ActividadesController {
   @ApiOperation({ summary: 'Eliminar una actividad' })
   @ApiResponse({ status: 200, description: 'Actividad eliminada' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 403, description: 'Solo los administradores pueden eliminar actividades' })
   @ApiResponse({ status: 404, description: 'Actividad no encontrada' })
   remove(@Request() req, @Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.actividadesService.remove(id, req.user.cedula, req.user.rol);
@@ -120,7 +119,7 @@ export class ActividadesController {
     type: [ActividadResponseDto]
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a este CUO' })
   @ApiResponse({ status: 404, description: 'No se encontraron actividades' })
   findByCuo(@Request() req, @Param('id', ParseIntPipe) cuoId: number): Promise<ActividadResponseDto[]> {
     return this.actividadesService.findByCuo(cuoId, req.user.cedula, req.user.rol);

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe, Request, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -22,7 +22,7 @@ export class CuoController {
    * Crea un nuevo CUO
    */
   @Post()
-  @Roles(RolUsuario.ADMIN)
+  @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
   @ApiOperation({ summary: 'Crear un nuevo CUO' })
   @ApiResponse({ 
     status: 201, 
@@ -31,7 +31,7 @@ export class CuoController {
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso al contrato especificado' })
   create(@Request() req, @Body() createCuoDto: CreateCuoDto): Promise<CuoResponseDto> {
     return this.cuoService.create(createCuoDto, req.user.cedula, req.user.rol);
   }
@@ -44,11 +44,10 @@ export class CuoController {
   @ApiOperation({ summary: 'Obtener todos los CUO' })
   @ApiResponse({ 
     status: 200, 
-    description: 'Lista de CUO',
+    description: 'Lista de CUO. Para supervisores, solo muestra los CUO de sus contratos.',
     type: [CuoResponseDto]
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
   findAll(@Request() req): Promise<CuoResponseDto[]> {
     return this.cuoService.findAll(req.user.cedula, req.user.rol);
   }
@@ -65,7 +64,7 @@ export class CuoController {
     type: CuoResponseDto
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a este CUO' })
   @ApiResponse({ status: 404, description: 'CUO no encontrado' })
   findOne(@Request() req, @Param('id', ParseIntPipe) id: number): Promise<CuoResponseDto> {
     return this.cuoService.findOne(id, req.user.cedula, req.user.rol);
@@ -75,7 +74,7 @@ export class CuoController {
    * Actualiza un CUO
    */
   @Patch(':id')
-  @Roles(RolUsuario.ADMIN)
+  @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
   @ApiOperation({ summary: 'Actualizar un CUO' })
   @ApiResponse({ 
     status: 200, 
@@ -84,7 +83,7 @@ export class CuoController {
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a este CUO' })
   @ApiResponse({ status: 404, description: 'CUO no encontrado' })
   update(
     @Request() req,
@@ -102,7 +101,7 @@ export class CuoController {
   @ApiOperation({ summary: 'Eliminar un CUO' })
   @ApiResponse({ status: 200, description: 'CUO eliminado' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 403, description: 'Solo los administradores pueden eliminar CUOs' })
   @ApiResponse({ status: 404, description: 'CUO no encontrado' })
   remove(@Request() req, @Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.cuoService.remove(id, req.user.cedula, req.user.rol);
@@ -120,7 +119,7 @@ export class CuoController {
     type: [CuoResponseDto]
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a este contrato' })
   @ApiResponse({ status: 404, description: 'No se encontraron CUOs' })
   findByContrato(@Request() req, @Param('id', ParseIntPipe) contratoId: number): Promise<CuoResponseDto[]> {
     return this.cuoService.findByContrato(contratoId, req.user.cedula, req.user.rol);

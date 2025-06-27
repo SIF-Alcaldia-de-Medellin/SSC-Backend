@@ -25,7 +25,7 @@ export class AdicionesController {
    * @returns La adición creada
    */
   @Post()
-  @Roles(RolUsuario.ADMIN)
+  @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
   @ApiOperation({ summary: 'Crear una nueva adición presupuestal' })
   @ApiResponse({ 
     status: 201, 
@@ -34,7 +34,7 @@ export class AdicionesController {
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso al contrato especificado' })
   async create(
     @Body() createAdicionDto: CreateAdicionDto,
     @Request() req
@@ -52,10 +52,10 @@ export class AdicionesController {
   @ApiOperation({ summary: 'Obtener todas las adiciones' })
   @ApiResponse({
     status: 200,
-    description: 'Lista de adiciones',
+    description: 'Lista de adiciones. Para supervisores, solo muestra las adiciones de sus contratos.',
     type: [AdicionResponseDto]
   })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
   findAll(@Request() req): Promise<AdicionResponseDto[]> {
     return this.adicionesService.findAll(req.user);
   }
@@ -75,7 +75,7 @@ export class AdicionesController {
     type: AdicionResponseDto
   })
   @ApiResponse({ status: 404, description: 'Adición no encontrada' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a esta adición' })
   findOne(
     @Param('id', ParseIntPipe) id: number,
     @Request() req
@@ -91,7 +91,7 @@ export class AdicionesController {
    * @returns La adición actualizada
    */
   @Patch(':id')
-  @Roles(RolUsuario.ADMIN)
+  @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
   @ApiOperation({ summary: 'Actualizar una adición' })
   @ApiResponse({
     status: 200,
@@ -99,7 +99,7 @@ export class AdicionesController {
     type: AdicionResponseDto
   })
   @ApiResponse({ status: 404, description: 'Adición no encontrada' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a esta adición' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateAdicionDto: Partial<CreateAdicionDto>,
@@ -118,7 +118,7 @@ export class AdicionesController {
   @ApiOperation({ summary: 'Eliminar una adición' })
   @ApiResponse({ status: 200, description: 'Adición eliminada' })
   @ApiResponse({ status: 404, description: 'Adición no encontrada' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 403, description: 'Solo los administradores pueden eliminar adiciones' })
   remove(
     @Param('id', ParseIntPipe) id: number,
     @Request() req
@@ -141,7 +141,7 @@ export class AdicionesController {
     type: [AdicionResponseDto]
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a este contrato' })
   @ApiResponse({ status: 404, description: 'No se encontraron adiciones' })
   async findByContrato(
     @Param('id') contratoId: number,

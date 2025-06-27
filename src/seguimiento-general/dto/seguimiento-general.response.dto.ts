@@ -33,10 +33,19 @@ export class SeguimientoGeneralResponseDto {
   };
 
   /**
-   * Porcentaje de avance financiero
+   * Valor ejecutado del contrato en pesos
    */
   @ApiProperty({ 
-    description: 'Porcentaje de avance financiero',
+    description: 'Valor ejecutado del contrato en pesos',
+    example: 150000000
+  })
+  valorEjecutado: number;
+
+  /**
+   * Porcentaje de avance financiero calculado
+   */
+  @ApiProperty({ 
+    description: 'Porcentaje de avance financiero calculado (valor ejecutado / valor total del contrato)',
     minimum: 0,
     maximum: 100,
     example: 45.75
@@ -64,6 +73,15 @@ export class SeguimientoGeneralResponseDto {
   createdAt: Date;
 
   /**
+   * Fecha de última modificación del registro
+   */
+  @ApiProperty({ 
+    description: 'Fecha de última modificación del registro',
+    example: '2024-03-15T10:30:00Z'
+  })
+  fechaUltimaModificacion: Date;
+
+  /**
    * Observaciones del seguimiento
    */
   @ApiProperty({ 
@@ -80,7 +98,7 @@ export class SeguimientoGeneralResponseDto {
     description: 'Diferencia entre avance físico y financiero (positivo indica mayor avance físico que financiero)',
     example: -3.45
   })
-  diferenciaAvance?: number;
+  diferenciaAvance: number;
 
   /**
    * Estado del avance
@@ -90,5 +108,14 @@ export class SeguimientoGeneralResponseDto {
     example: 'NORMAL',
     enum: ['ATRASADO', 'NORMAL', 'ADELANTADO']
   })
-  estadoAvance?: string;
+  estadoAvance: string;
+
+  /**
+   * Resumen del estado en formato legible
+   */
+  @ApiProperty({ 
+    description: 'Resumen del estado en formato legible',
+    example: 'NORMAL: Avance físico 42.30% vs. financiero 45.75% (diferencia: -3.45%). Valor ejecutado: $150.000.000 de $328.000.000'
+  })
+  resumenEstado: string;
 } 

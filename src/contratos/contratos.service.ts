@@ -5,6 +5,7 @@ import { Contrato } from './contrato.entity';
 import { CreateContratoDto } from './dto/create-contrato.dto';
 import { ContratoResponseDto } from './dto/contrato.response.dto';
 import { RolUsuario } from '../usuarios/usuario.entity';
+import { PermissionUtils } from '../auth/utils/permission.utils';
 
 /**
  * Servicio para la gestión de contratos
@@ -17,10 +18,12 @@ export class ContratosService {
   ) {}
 
   /**
-   * Verifica si un usuario tiene acceso a un contrato
+   * Verifica si el usuario es administrador
    */
-  private verificarAccesoContrato(usuarioCedula: string, usuarioRol: RolUsuario, contrato: Contrato): boolean {
-    return usuarioRol === RolUsuario.ADMIN || usuarioRol === RolUsuario.SUPERVISOR;
+  private verificarAdmin(usuarioRol: RolUsuario, operacion: string): void {
+    if (usuarioRol !== RolUsuario.ADMIN) {
+      throw new ForbiddenException(`Solo los administradores pueden ${operacion} contratos`);
+    }
   }
 
   /**
@@ -48,9 +51,8 @@ export class ContratosService {
    * @throws ConflictException si el número de contrato ya existe
    */
   async create(createContratoDto: CreateContratoDto, usuarioRol: RolUsuario): Promise<ContratoResponseDto> {
-    if (usuarioRol !== RolUsuario.ADMIN) {
-      throw new ForbiddenException('Solo los administradores pueden crear contratos');
-    }
+    // Solo los administradores pueden crear contratos
+    this.verificarAdmin(usuarioRol, 'crear');
 
     const existingContrato = await this.contratoRepository.findOne({
       where: { numeroContrato: createContratoDto.numeroContrato }
@@ -70,10 +72,24 @@ export class ContratosService {
    * 
    * @param usuarioCedula - Cédula del usuario
    * @param usuarioRol - Rol del usuario
-   * @returns Lista de contratos
+   * @returns Lista de contratos. Si es ADMIN retorna todos, si es SUPERVISOR solo sus contratos asignados
    */
   async findAll(usuarioCedula: string, usuarioRol: RolUsuario): Promise<ContratoResponseDto[]> {
-    const contratos = await this.contratoRepository.find();
+    // Verificar permiso de visualización
+    PermissionUtils.verificarPermisoVisualizacion(usuarioRol);
+
+    if (usuarioRol === RolUsuario.ADMIN) {
+      const contratos = await this.contratoRepository.find({
+        relations: ['supervisor']
+      });
+      return contratos.map(contrato => this.toResponseDto(contrato));
+    }
+
+    // Para supervisores, solo retornar sus contratos asignados
+    const contratos = await this.contratoRepository.find({
+      where: { usuarioCedula },
+      relations: ['supervisor']
+    });
     return contratos.map(contrato => this.toResponseDto(contrato));
   }
 
@@ -88,15 +104,20 @@ export class ContratosService {
    * @throws ForbiddenException si el usuario no tiene acceso al contrato
    */
   async findOne(id: number, usuarioCedula: string, usuarioRol: RolUsuario): Promise<ContratoResponseDto> {
+    // Verificar permiso de visualización
+    PermissionUtils.verificarPermisoVisualizacion(usuarioRol);
+
     const contrato = await this.contratoRepository.findOne({
-      where: { id }
+      where: { id },
+      relations: ['supervisor']
     });
 
     if (!contrato) {
       throw new NotFoundException('Contrato no encontrado');
     }
 
-    if (!this.verificarAccesoContrato(usuarioCedula, usuarioRol, contrato)) {
+    // Verificar acceso al contrato
+    if (!PermissionUtils.verificarAccesoContrato(usuarioCedula, usuarioRol, contrato)) {
       throw new ForbiddenException('No tienes acceso a este contrato');
     }
 
@@ -108,14 +129,16 @@ export class ContratosService {
    */
   private async findOneEntity(id: number, usuarioCedula: string, usuarioRol: RolUsuario): Promise<Contrato> {
     const contrato = await this.contratoRepository.findOne({
-      where: { id }
+      where: { id },
+      relations: ['supervisor']
     });
 
     if (!contrato) {
       throw new NotFoundException('Contrato no encontrado');
     }
 
-    if (!this.verificarAccesoContrato(usuarioCedula, usuarioRol, contrato)) {
+    // Verificar acceso al contrato
+    if (!PermissionUtils.verificarAccesoContrato(usuarioCedula, usuarioRol, contrato)) {
       throw new ForbiddenException('No tienes acceso a este contrato');
     }
 
@@ -139,6 +162,9 @@ export class ContratosService {
     usuarioCedula: string,
     usuarioRol: RolUsuario
   ): Promise<ContratoResponseDto> {
+    // Solo los administradores pueden actualizar contratos
+    this.verificarAdmin(usuarioRol, 'actualizar');
+
     const contrato = await this.findOneEntity(id, usuarioCedula, usuarioRol);
 
     // Si se está actualizando el número de contrato, verificar que no exista
@@ -167,9 +193,8 @@ export class ContratosService {
    * @throws ForbiddenException si el usuario no tiene permiso para eliminar el contrato
    */
   async remove(id: number, usuarioCedula: string, usuarioRol: RolUsuario): Promise<void> {
-    if (usuarioRol !== RolUsuario.ADMIN) {
-      throw new ForbiddenException('Solo los administradores pueden eliminar contratos');
-    }
+    // Solo los administradores pueden eliminar contratos
+    this.verificarAdmin(usuarioRol, 'eliminar');
 
     const contrato = await this.findOneEntity(id, usuarioCedula, usuarioRol);
     await this.contratoRepository.remove(contrato);
@@ -179,17 +204,21 @@ export class ContratosService {
    * Busca contratos por supervisor
    * 
    * @param usuarioCedula - Cédula del supervisor
-   * @param usuarioRol - Rol del usuario
+   * @param usuarioRol - Rol del usuario que realiza la consulta
    * @returns Lista de contratos asignados al supervisor
    */
   async findByUsuario(usuarioCedula: string, usuarioRol: RolUsuario): Promise<ContratoResponseDto[]> {
-    if (usuarioRol === RolUsuario.ADMIN) {
-      const contratos = await this.contratoRepository.find();
-      return contratos.map(contrato => this.toResponseDto(contrato));
+    // Verificar permiso de visualización
+    PermissionUtils.verificarPermisoVisualizacion(usuarioRol);
+
+    // Los supervisores solo pueden ver sus propios contratos
+    if (usuarioRol === RolUsuario.SUPERVISOR && usuarioCedula !== usuarioCedula) {
+      throw new ForbiddenException('Los supervisores solo pueden ver sus propios contratos');
     }
 
     const contratos = await this.contratoRepository.find({
-      where: { usuarioCedula }
+      where: { usuarioCedula },
+      relations: ['supervisor']
     });
     return contratos.map(contrato => this.toResponseDto(contrato));
   }

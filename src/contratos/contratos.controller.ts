@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe, Request, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -119,11 +119,12 @@ export class ContratosController {
     type: [ContratoResponseDto]
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 403, description: 'Acceso prohibido - Los supervisores solo pueden ver sus propios contratos' })
   @ApiResponse({ status: 404, description: 'No se encontraron contratos' })
   findByUsuario(@Request() req, @Param('cedula') usuarioCedula: string): Promise<ContratoResponseDto[]> {
-    // Si es supervisor, solo puede ver sus propios contratos
-    const cedulaConsulta = req.user.rol === RolUsuario.SUPERVISOR ? req.user.cedula : usuarioCedula;
-    return this.contratosService.findByUsuario(cedulaConsulta, req.user.rol);
+    if (req.user.rol === RolUsuario.SUPERVISOR && req.user.cedula !== usuarioCedula) {
+      throw new ForbiddenException('Los supervisores solo pueden ver sus propios contratos');
+    }
+    return this.contratosService.findByUsuario(usuarioCedula, req.user.rol);
   }
 } 

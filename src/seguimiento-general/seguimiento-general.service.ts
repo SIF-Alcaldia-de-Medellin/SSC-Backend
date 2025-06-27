@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SeguimientoGeneral } from './seguimiento-general.entity';
@@ -18,23 +18,9 @@ export class SeguimientoGeneralService {
   ) {}
 
   /**
-   * Verifica si un usuario tiene acceso a un contrato
-   */
-  private async verificarAccesoContrato(
-    contratoId: number,
-    usuarioCedula: string,
-    usuarioRol: RolUsuario
-  ): Promise<void> {
-    await PermissionUtils.verificarAccesoEntidad(
-      contratoId,
-      usuarioCedula,
-      usuarioRol,
-      this.contratoRepository
-    );
-  }
-
-  /**
    * Determina el estado del avance basado en la diferencia entre avance físico y financiero
+   * @param diferenciaAvance Diferencia entre porcentaje físico y financiero
+   * @returns Estado del avance: ATRASADO, NORMAL o ADELANTADO
    */
   private determinarEstadoAvance(diferenciaAvance: number): string {
     if (diferenciaAvance < -5) return 'ATRASADO';
@@ -43,7 +29,45 @@ export class SeguimientoGeneralService {
   }
 
   /**
+   * Calcula el porcentaje de avance financiero
+   * @param valorEjecutado Valor ejecutado del contrato
+   * @param valorTotal Valor total del contrato
+   * @returns Porcentaje de avance financiero
+   */
+  private calcularPorcentajeFinanciero(valorEjecutado: number, valorTotal: number): number {
+    if (!valorTotal || valorTotal <= 0) {
+      throw new BadRequestException('El valor total del contrato debe ser mayor a 0');
+    }
+    return (valorEjecutado / valorTotal) * 100;
+  }
+
+  /**
+   * Valida los valores de avance
+   * @throws BadRequestException si los valores no son válidos
+   */
+  private validarValores(valorEjecutado: number, avanceFisico: number, valorTotal: number): void {
+    // Validar valor ejecutado
+    if (isNaN(valorEjecutado) || valorEjecutado < 0) {
+      throw new BadRequestException('El valor ejecutado debe ser un número positivo');
+    }
+
+    // Validar que el valor ejecutado no supere el valor total
+    if (valorEjecutado > valorTotal) {
+      throw new BadRequestException(
+        `El valor ejecutado (${valorEjecutado.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}) ` +
+        `no puede superar el valor total del contrato (${valorTotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })})`
+      );
+    }
+
+    // Validar avance físico
+    if (isNaN(avanceFisico) || avanceFisico < 0 || avanceFisico > 100) {
+      throw new BadRequestException('El porcentaje de avance físico debe estar entre 0 y 100');
+    }
+  }
+
+  /**
    * Transforma una entidad SeguimientoGeneral en un DTO de respuesta
+   * @throws NotFoundException si el seguimiento es nulo
    */
   private toResponseDto(seguimiento: SeguimientoGeneral): SeguimientoGeneralResponseDto {
     if (!seguimiento) {
@@ -52,43 +76,90 @@ export class SeguimientoGeneralService {
 
     const { contrato, ...seguimientoData } = seguimiento;
 
+    if (!contrato) {
+      throw new NotFoundException('No se encontró el contrato asociado al seguimiento');
+    }
+
+    // Asegurar que los valores sean números
+    const valorEjecutado = Number(seguimiento.avanceFinanciero);
+    const valorTotal = Number(contrato.valorTotal);
+    const avanceFisico = Number(seguimiento.avanceFisico);
+
+    // Calcular el porcentaje de avance financiero
+    const avanceFinanciero = this.calcularPorcentajeFinanciero(valorEjecutado, valorTotal);
+
     // Calcular la diferencia entre avance físico y financiero
-    const diferenciaAvance = Number((seguimiento.avanceFisico - seguimiento.avanceFinanciero).toFixed(2));
+    const diferenciaAvance = Number((avanceFisico - avanceFinanciero).toFixed(2));
+
+    // Calcular el estado del avance
+    const estadoAvance = this.determinarEstadoAvance(diferenciaAvance);
 
     return {
       ...seguimientoData,
-      contrato: contrato ? {
+      valorEjecutado: valorEjecutado,
+      avanceFinanciero: Number(avanceFinanciero.toFixed(2)),
+      avanceFisico: Number(avanceFisico.toFixed(2)),
+      contrato: {
         numeroContrato: contrato.numeroContrato,
         identificadorSimple: contrato.identificadorSimple,
         objeto: contrato.objeto,
         valorTotal: contrato.valorTotal,
         fechaTerminacionActual: contrato.fechaTerminacionActual,
         estado: contrato.estado
-      } : undefined,
+      },
       diferenciaAvance,
-      estadoAvance: this.determinarEstadoAvance(diferenciaAvance)
+      estadoAvance,
+      fechaUltimaModificacion: seguimiento.createdAt,
+      resumenEstado: `${estadoAvance}: Avance físico ${avanceFisico.toFixed(2)}% vs. financiero ${avanceFinanciero.toFixed(2)}% ` +
+        `(diferencia: ${diferenciaAvance > 0 ? '+' : ''}${diferenciaAvance}%). ` +
+        `Valor ejecutado: ${valorEjecutado.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} ` +
+        `de ${valorTotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}`
     };
   }
 
   /**
    * Crea un nuevo seguimiento general
+   * @throws ForbiddenException si el usuario no tiene permisos de creación
+   * @throws BadRequestException si los valores no son válidos
+   * @throws NotFoundException si el contrato no existe
    */
   async create(
     createSeguimientoGeneralDto: CreateSeguimientoGeneralDto,
     usuarioCedula: string,
     usuarioRol: RolUsuario
   ): Promise<SeguimientoGeneralResponseDto> {
-    // Verificar permiso de creación
+    // Verificar permiso de creación (solo ADMIN)
     PermissionUtils.verificarPermisoCreacion(usuarioRol);
 
-    // Verificar acceso al contrato
-    await this.verificarAccesoContrato(
+    // Buscar el contrato y verificar acceso
+    const contrato = await this.contratoRepository.findOne({
+      where: { id: createSeguimientoGeneralDto.contratoId }
+    });
+
+    if (!contrato) {
+      throw new NotFoundException(`No se encontró el contrato con ID ${createSeguimientoGeneralDto.contratoId}`);
+    }
+
+    await PermissionUtils.verificarAccesoContratoById(
       createSeguimientoGeneralDto.contratoId,
       usuarioCedula,
-      usuarioRol
+      usuarioRol,
+      this.contratoRepository
     );
 
-    const seguimiento = this.seguimientoGeneralRepository.create(createSeguimientoGeneralDto);
+    // Validar los valores
+    this.validarValores(
+      createSeguimientoGeneralDto.avanceFinanciero,
+      createSeguimientoGeneralDto.avanceFisico,
+      contrato.valorTotal
+    );
+
+    const seguimiento = this.seguimientoGeneralRepository.create({
+      ...createSeguimientoGeneralDto,
+      avanceFinanciero: Number(createSeguimientoGeneralDto.avanceFinanciero),
+      avanceFisico: Number(createSeguimientoGeneralDto.avanceFisico)
+    });
+
     const savedSeguimiento = await this.seguimientoGeneralRepository.save(seguimiento);
     
     // Cargar la relación con contrato para el DTO de respuesta
@@ -106,6 +177,8 @@ export class SeguimientoGeneralService {
 
   /**
    * Obtiene todos los seguimientos de un contrato específico por su ID
+   * @throws ForbiddenException si el usuario no tiene acceso al contrato
+   * @throws NotFoundException si no se encuentran seguimientos
    */
   async findByContrato(
     contratoId: number,
@@ -113,7 +186,12 @@ export class SeguimientoGeneralService {
     usuarioRol: RolUsuario
   ): Promise<SeguimientoGeneralResponseDto[]> {
     // Verificar acceso al contrato
-    await this.verificarAccesoContrato(contratoId, usuarioCedula, usuarioRol);
+    await PermissionUtils.verificarAccesoContratoById(
+      contratoId,
+      usuarioCedula,
+      usuarioRol,
+      this.contratoRepository
+    );
 
     const seguimientos = await this.seguimientoGeneralRepository.find({
       where: { contratoId },
@@ -130,6 +208,8 @@ export class SeguimientoGeneralService {
 
   /**
    * Obtiene todos los seguimientos de un contrato por su número de contrato
+   * @throws ForbiddenException si el usuario no tiene acceso al contrato
+   * @throws NotFoundException si no se encuentra el contrato o los seguimientos
    */
   async findByNumeroContrato(
     numeroContrato: string,
@@ -146,7 +226,12 @@ export class SeguimientoGeneralService {
     }
 
     // Verificar acceso al contrato
-    await this.verificarAccesoContrato(contrato.id, usuarioCedula, usuarioRol);
+    await PermissionUtils.verificarAccesoContratoById(
+      contrato.id,
+      usuarioCedula,
+      usuarioRol,
+      this.contratoRepository
+    );
 
     const seguimientos = await this.seguimientoGeneralRepository
       .createQueryBuilder('seguimiento')
@@ -164,6 +249,8 @@ export class SeguimientoGeneralService {
 
   /**
    * Obtiene un seguimiento específico por su ID
+   * @throws ForbiddenException si el usuario no tiene acceso al contrato
+   * @throws NotFoundException si no se encuentra el seguimiento
    */
   async findOne(
     id: number,
@@ -180,7 +267,12 @@ export class SeguimientoGeneralService {
     }
 
     // Verificar acceso al contrato relacionado
-    await this.verificarAccesoContrato(seguimiento.contratoId, usuarioCedula, usuarioRol);
+    await PermissionUtils.verificarAccesoContratoById(
+      seguimiento.contratoId,
+      usuarioCedula,
+      usuarioRol,
+      this.contratoRepository
+    );
 
     return this.toResponseDto(seguimiento);
   }

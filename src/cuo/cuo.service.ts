@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cuo } from './cuo.entity';
@@ -42,11 +42,6 @@ export class CuoService {
 
   /**
    * Crea un nuevo CUO
-   * 
-   * @param createCuoDto - Datos del CUO a crear
-   * @param usuarioCedula - Cédula del usuario que realiza la acción
-   * @param usuarioRol - Rol del usuario que realiza la acción
-   * @returns El CUO creado
    */
   async create(
     createCuoDto: CreateCuoDto,
@@ -57,7 +52,7 @@ export class CuoService {
     PermissionUtils.verificarPermisoCreacion(usuarioRol);
 
     // Verificar acceso al contrato
-    await PermissionUtils.verificarAccesoEntidad(
+    await PermissionUtils.verificarAccesoContratoById(
       createCuoDto.contratoId,
       usuarioCedula,
       usuarioRol,
@@ -67,10 +62,9 @@ export class CuoService {
     const cuo = this.cuoRepository.create(createCuoDto);
     const savedCuo = await this.cuoRepository.save(cuo);
 
-    // Cargar la relación con contrato para el DTO
     const cuoCompleto = await this.cuoRepository.findOne({
       where: { id: savedCuo.id },
-      relations: ['contrato']
+      relations: ['contrato', 'actividades']
     });
 
     if (!cuoCompleto) {
@@ -82,25 +76,32 @@ export class CuoService {
 
   /**
    * Obtiene todos los CUO según los permisos del usuario
-   * 
-   * @param usuarioCedula - Cédula del usuario que realiza la consulta
-   * @param usuarioRol - Rol del usuario que realiza la consulta
-   * @returns Lista de CUO
    */
   async findAll(usuarioCedula: string, usuarioRol: RolUsuario): Promise<CuoResponseDto[]> {
-    const cuos = await this.cuoRepository.find({
-      relations: ['contrato']
-    });
+    // Verificar permiso de visualización
+    PermissionUtils.verificarPermisoVisualizacion(usuarioRol);
+
+    if (usuarioRol === RolUsuario.ADMIN) {
+      const cuos = await this.cuoRepository.find({
+        relations: ['contrato', 'actividades']
+      });
+      return cuos.map(cuo => this.toResponseDto(cuo));
+    }
+
+    // Para supervisores, solo retornar los CUO de sus contratos
+    const cuos = await this.cuoRepository
+      .createQueryBuilder('cuo')
+      .leftJoinAndSelect('cuo.contrato', 'contrato')
+      .leftJoinAndSelect('cuo.actividades', 'actividades')
+      .where('contrato.usuarioCedula = :usuarioCedula', { usuarioCedula })
+      .orderBy('cuo.id', 'ASC')
+      .getMany();
+
     return cuos.map(cuo => this.toResponseDto(cuo));
   }
 
   /**
    * Obtiene un CUO por su ID
-   * 
-   * @param id - ID del CUO
-   * @param usuarioCedula - Cédula del usuario que realiza la consulta
-   * @param usuarioRol - Rol del usuario que realiza la consulta
-   * @returns El CUO encontrado
    */
   async findOne(
     id: number,
@@ -109,15 +110,15 @@ export class CuoService {
   ): Promise<CuoResponseDto> {
     const cuo = await this.cuoRepository.findOne({
       where: { id },
-      relations: ['contrato']
+      relations: ['contrato', 'actividades']
     });
 
     if (!cuo) {
       throw new NotFoundException('CUO no encontrado');
     }
 
-    // Verificar acceso al contrato relacionado
-    await PermissionUtils.verificarAccesoEntidad(
+    // Verificar acceso al contrato
+    await PermissionUtils.verificarAccesoContratoById(
       cuo.contratoId,
       usuarioCedula,
       usuarioRol,
@@ -129,12 +130,6 @@ export class CuoService {
 
   /**
    * Actualiza un CUO
-   * 
-   * @param id - ID del CUO a actualizar
-   * @param updateCuoDto - Datos actualizados del CUO
-   * @param usuarioCedula - Cédula del usuario que realiza la acción
-   * @param usuarioRol - Rol del usuario que realiza la acción
-   * @returns El CUO actualizado
    */
   async update(
     id: number,
@@ -147,15 +142,15 @@ export class CuoService {
 
     const cuo = await this.cuoRepository.findOne({
       where: { id },
-      relations: ['contrato']
+      relations: ['contrato', 'actividades']
     });
 
     if (!cuo) {
       throw new NotFoundException('CUO no encontrado');
     }
 
-    // Verificar acceso al contrato relacionado
-    await PermissionUtils.verificarAccesoEntidad(
+    // Verificar acceso al contrato actual
+    await PermissionUtils.verificarAccesoContratoById(
       cuo.contratoId,
       usuarioCedula,
       usuarioRol,
@@ -164,7 +159,7 @@ export class CuoService {
 
     // Si se está cambiando el contrato, verificar acceso al nuevo contrato
     if (updateCuoDto.contratoId && updateCuoDto.contratoId !== cuo.contratoId) {
-      await PermissionUtils.verificarAccesoEntidad(
+      await PermissionUtils.verificarAccesoContratoById(
         updateCuoDto.contratoId,
         usuarioCedula,
         usuarioRol,
@@ -179,12 +174,11 @@ export class CuoService {
 
   /**
    * Elimina un CUO
-   * 
-   * @param id - ID del CUO a eliminar
-   * @param usuarioCedula - Cédula del usuario que realiza la acción
-   * @param usuarioRol - Rol del usuario que realiza la acción
    */
   async remove(id: number, usuarioCedula: string, usuarioRol: RolUsuario): Promise<void> {
+    // Verificar permiso de eliminación
+    PermissionUtils.verificarPermisoEliminacion(usuarioRol);
+
     const cuo = await this.cuoRepository.findOne({
       where: { id },
       relations: ['contrato']
@@ -194,11 +188,8 @@ export class CuoService {
       throw new NotFoundException('CUO no encontrado');
     }
 
-    // Verificar permiso de eliminación
-    PermissionUtils.verificarPermisoEliminacion(usuarioRol);
-
-    // Verificar acceso al contrato relacionado
-    await PermissionUtils.verificarAccesoEntidad(
+    // Verificar acceso al contrato
+    await PermissionUtils.verificarAccesoContratoById(
       cuo.contratoId,
       usuarioCedula,
       usuarioRol,
@@ -210,11 +201,6 @@ export class CuoService {
 
   /**
    * Obtiene todos los CUO de un contrato
-   * 
-   * @param contratoId - ID del contrato
-   * @param usuarioCedula - Cédula del usuario que realiza la consulta
-   * @param usuarioRol - Rol del usuario que realiza la consulta
-   * @returns Lista de CUO del contrato
    */
   async findByContrato(
     contratoId: number,
@@ -222,7 +208,7 @@ export class CuoService {
     usuarioRol: RolUsuario
   ): Promise<CuoResponseDto[]> {
     // Verificar acceso al contrato
-    await PermissionUtils.verificarAccesoEntidad(
+    await PermissionUtils.verificarAccesoContratoById(
       contratoId,
       usuarioCedula,
       usuarioRol,
@@ -231,7 +217,7 @@ export class CuoService {
 
     const cuos = await this.cuoRepository.find({
       where: { contratoId },
-      relations: ['contrato'],
+      relations: ['contrato', 'actividades'],
       order: {
         id: 'ASC'
       }

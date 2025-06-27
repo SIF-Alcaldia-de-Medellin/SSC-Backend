@@ -29,30 +29,55 @@ export class SeguimientoGeneral {
   contrato: Contrato;
 
   /**
-   * Porcentaje de avance financiero
+   * Valor ejecutado del contrato en pesos
    */
-  @ApiProperty({ description: 'Porcentaje de avance financiero', minimum: 0, maximum: 100 })
-  @Column('decimal', { name: 'SEG_AVANCE_FINANCIERO', precision: 5, scale: 2 })
+  @ApiProperty({ 
+    description: 'Valor ejecutado del contrato en pesos',
+    example: 150000000
+  })
+  @Column('decimal', { 
+    name: 'SEG_AVANCE_FINANCIERO', 
+    precision: 15, 
+    scale: 2,
+    comment: 'Valor ejecutado del contrato en pesos colombianos'
+  })
   avanceFinanciero: number;
 
   /**
    * Porcentaje de avance físico
    */
-  @ApiProperty({ description: 'Porcentaje de avance físico', minimum: 0, maximum: 100 })
-  @Column('decimal', { name: 'SEG_AVANCE_FISICO', precision: 5, scale: 2 })
+  @ApiProperty({ 
+    description: 'Porcentaje de avance físico', 
+    minimum: 0, 
+    maximum: 100,
+    example: 45.5
+  })
+  @Column('decimal', { 
+    name: 'SEG_AVANCE_FISICO', 
+    precision: 5, 
+    scale: 2,
+    comment: 'Porcentaje de avance físico (0-100)'
+  })
   avanceFisico: number;
 
   /**
    * Fecha de creación del registro
    */
-  @ApiProperty({ description: 'Fecha de creación del registro' })
+  @ApiProperty({ 
+    description: 'Fecha de creación del registro',
+    example: '2024-03-15T10:30:00Z'
+  })
   @CreateDateColumn({ name: 'SEG_CREATED_AT' })
   createdAt: Date;
 
   /**
    * Observaciones del seguimiento
    */
-  @ApiProperty({ description: 'Observaciones del seguimiento', required: false })
+  @ApiProperty({ 
+    description: 'Observaciones del seguimiento', 
+    required: false,
+    example: 'El avance del contrato se encuentra dentro de lo programado...'
+  })
   @Column('text', { name: 'SEG_OBSERVACIONES', nullable: true })
   observaciones?: string;
 } 

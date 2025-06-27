@@ -1,0 +1,123 @@
+{
+  "auth": {
+    "login": {
+      "email": "admin@medellin.gov.co",
+      "password": "Admin123456"
+    }
+  },
+
+  "usuarios": {
+    "crear": {
+      "cedula": "12345678",
+      "email": "supervisor@medellin.gov.co",
+      "password": "Supervisor123",
+      "rol": "SUPERVISOR",
+      "nombre": "Juan Pérez"
+    }
+  },
+
+  "contratos": {
+    "crear": {
+      "usuarioCedula": "12345678",
+      "numeroContrato": "4600012345",
+      "anoSuscripcion": 2024,
+      "programa": "Mejoramiento de Espacios Públicos",
+      "tipoContrato": "OBRA",
+      "objeto": "Construcción y mejoramiento de andenes en la comuna 14",
+      "identificadorSimple": "ANDENES-C14-2024",
+      "suplentes": "María Gómez - CC 87654321",
+      "apoyo": "Carlos Ruiz - Ing. Civil",
+      "estado": "ACTIVO",
+      "contratista": "Constructora XYZ S.A.S",
+      "numeroProceso": "LP-001-2024",
+      "fechaInicio": "2024-03-01T00:00:00.000Z",
+      "fechaTerminacionInicial": "2024-08-31T00:00:00.000Z",
+      "fechaTerminacionActual": "2024-08-31T00:00:00.000Z",
+      "valorInicial": 500000000,
+      "valorTotal": 500000000
+    }
+  },
+
+  "cuo": {
+    "crear": {
+      "contratoId": 1,
+      "numero": "001",
+      "latitud": 6.217,
+      "longitud": -75.567,
+      "comuna": "El Poblado",
+      "barrio": "Manila",
+      "descripcion": "Construcción de andenes en la Calle 12 entre Carreras 43B y 43C"
+    }
+  },
+
+  "actividades": {
+    "crear": {
+      "cuoId": 1,
+      "actividad": "Demolición andén existente",
+      "metaFisica": 150,
+      "proyectadoFinanciero": 15000000,
+      "unidadesAvance": "m²"
+    }
+  },
+
+  "seguimiento_actividad": {
+    "crear": {
+      "actividadId": 1,
+      "avanceFisico": 50,
+      "costoAproximado": 5000000,
+      "descripcionSeguimiento": "Se completó la demolición de 50m² de andén existente en el costado norte",
+      "proyeccionActividades": "Se continuará con la demolición en el costado sur durante la próxima semana"
+    }
+  },
+
+  "seguimiento_general": {
+    "crear": {
+      "contratoId": 1,
+      "avanceFinanciero": 30,
+      "avanceFisico": 35,
+      "observaciones": "El avance del contrato se encuentra dentro de lo programado. Se han presentado algunas lluvias que han ralentizado levemente los trabajos."
+    }
+  },
+
+  "adiciones": {
+    "crear": {
+      "contratoId": 1,
+      "valorAdicion": 50000000,
+      "fecha": "2024-05-01T00:00:00.000Z",
+      "observaciones": "Adición para incluir la construcción de rampas de acceso no contempladas inicialmente"
+    }
+  },
+
+  "modificaciones": {
+    "crear": {
+      "contratoId": 1,
+      "tipo": "SUSPENSION",
+      "fechaInicio": "2024-04-01T00:00:00.000Z",
+      "fechaFinal": "2024-04-15T00:00:00.000Z",
+      "observaciones": "Suspensión por temporada de lluvias que impide la ejecución segura de las obras"
+    }
+  },
+
+  "secuencia_uso": {
+    "descripcion": "Secuencia recomendada para probar los endpoints",
+    "pasos": [
+      "1. Crear usuario administrador (si no existe)",
+      "2. Login para obtener token",
+      "3. Crear usuario supervisor",
+      "4. Crear contrato",
+      "5. Crear CUO",
+      "6. Crear actividades",
+      "7. Registrar seguimientos de actividades",
+      "8. Registrar seguimiento general",
+      "9. Crear adiciones (opcional)",
+      "10. Crear modificaciones (opcional)"
+    ]
+  },
+
+  "notas": {
+    "autenticacion": "Todos los endpoints excepto login requieren el token JWT en el header: Authorization: Bearer <token>",
+    "fechas": "Todas las fechas deben enviarse en formato ISO 8601",
+    "valores": "Los valores monetarios deben enviarse como enteros (sin decimales)",
+    "coordenadas": "Las coordenadas deben estar en el sistema WGS84 (latitud entre -90 y 90, longitud entre -180 y 180)"
+  }
+} 

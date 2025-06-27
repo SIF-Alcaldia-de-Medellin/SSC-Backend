@@ -6,6 +6,7 @@ import { Contrato } from '../contratos/contrato.entity';
 import { CreateModificacionDto } from './dto/create-modificacion.dto';
 import { ModificacionResponseDto } from './dto/modificacion.response.dto';
 import { RolUsuario } from '../usuarios/usuario.entity';
+import { PermissionUtils } from '../auth/utils/permission.utils';
 import { differenceInDays, addDays } from 'date-fns';
 
 interface RequestUser {
@@ -25,26 +26,6 @@ export class ModificacionesService {
     private readonly contratoRepository: Repository<Contrato>,
     private dataSource: DataSource
   ) {}
-
-  /**
-   * Verifica si un usuario tiene acceso a un contrato específico
-   * @param user - Usuario que realiza la petición
-   * @param contratoId - ID del contrato a verificar
-   * @returns true si tiene acceso, false si no
-   */
-  private async hasAccessToContract(user: RequestUser, contratoId: number): Promise<boolean> {
-    return user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR;
-  }
-
-  /**
-   * Verifica si un usuario tiene acceso a una modificación específica
-   * @param user - Usuario que realiza la petición
-   * @param modificacionId - ID de la modificación a verificar
-   * @returns true si tiene acceso, false si no
-   */
-  private async hasAccessToModificacion(user: RequestUser, modificacionId: number): Promise<boolean> {
-    return user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR;
-  }
 
   /**
    * Calcula la duración en días entre dos fechas
@@ -135,15 +116,18 @@ export class ModificacionesService {
 
   /**
    * Crea una nueva modificación contractual
-   * 
-   * @param createModificacionDto - Datos de la modificación a crear
-   * @param user - Usuario que realiza la petición
-   * @returns La modificación creada
    */
   async create(createModificacionDto: CreateModificacionDto, user: RequestUser): Promise<ModificacionResponseDto> {
-    if (user.rol !== RolUsuario.ADMIN && user.rol !== RolUsuario.SUPERVISOR) {
-      throw new ForbiddenException('No tiene permisos para crear modificaciones');
-    }
+    // Verificar permiso de creación
+    PermissionUtils.verificarPermisoCreacion(user.rol);
+
+    // Verificar acceso al contrato
+    await PermissionUtils.verificarAccesoContratoById(
+      createModificacionDto.contratoId,
+      user.cedula,
+      user.rol,
+      this.contratoRepository
+    );
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -215,31 +199,40 @@ export class ModificacionesService {
   }
 
   /**
-   * Obtiene todas las modificaciones
-   * 
-   * @param user - Usuario que realiza la petición
-   * @returns Lista de modificaciones
+   * Obtiene todas las modificaciones según los permisos del usuario
    */
   async findAll(user: RequestUser): Promise<ModificacionResponseDto[]> {
-    const modificaciones = await this.modificacionRepository.find({
-      relations: ['contrato'],
-      order: {
-        createdAt: 'DESC'
-      }
-    });
+    // Verificar permiso de visualización
+    PermissionUtils.verificarPermisoVisualizacion(user.rol);
+
+    if (user.rol === RolUsuario.ADMIN) {
+      const modificaciones = await this.modificacionRepository.find({
+        relations: ['contrato'],
+        order: {
+          createdAt: 'DESC'
+        }
+      });
+      return modificaciones.map(modificacion => this.toResponseDto(modificacion));
+    }
+
+    // Para supervisores, solo retornar las modificaciones de sus contratos
+    const modificaciones = await this.modificacionRepository
+      .createQueryBuilder('modificacion')
+      .leftJoinAndSelect('modificacion.contrato', 'contrato')
+      .where('contrato.usuarioCedula = :usuarioCedula', { usuarioCedula: user.cedula })
+      .orderBy('modificacion.createdAt', 'DESC')
+      .getMany();
+
     return modificaciones.map(modificacion => this.toResponseDto(modificacion));
   }
 
   /**
    * Obtiene una modificación por su ID
-   * 
-   * @param id - ID de la modificación
-   * @param user - Usuario que realiza la petición
-   * @returns La modificación encontrada
-   * @throws NotFoundException si la modificación no existe
-   * @throws ForbiddenException si el usuario no tiene acceso
    */
   async findOne(id: number, user: RequestUser): Promise<ModificacionResponseDto> {
+    // Verificar permiso de visualización
+    PermissionUtils.verificarPermisoVisualizacion(user.rol);
+
     const modificacion = await this.modificacionRepository.findOne({
       where: { id },
       relations: ['contrato']
@@ -249,8 +242,8 @@ export class ModificacionesService {
       throw new NotFoundException('Modificación no encontrada');
     }
 
-    const hasAccess = await this.hasAccessToModificacion(user, id);
-    if (!hasAccess) {
+    // Verificar acceso al contrato
+    if (!PermissionUtils.verificarAccesoContrato(user.cedula, user.rol, modificacion.contrato)) {
       throw new ForbiddenException('No tiene acceso a esta modificación');
     }
 
@@ -259,18 +252,10 @@ export class ModificacionesService {
 
   /**
    * Actualiza una modificación
-   * 
-   * @param id - ID de la modificación a actualizar
-   * @param updateModificacionDto - Datos actualizados de la modificación
-   * @param user - Usuario que realiza la petición
-   * @returns La modificación actualizada
-   * @throws NotFoundException si la modificación no existe
-   * @throws ForbiddenException si el usuario no tiene acceso
    */
   async update(id: number, updateModificacionDto: Partial<CreateModificacionDto>, user: RequestUser): Promise<ModificacionResponseDto> {
-    if (user.rol !== RolUsuario.ADMIN && user.rol !== RolUsuario.SUPERVISOR) {
-      throw new ForbiddenException('No tiene permisos para actualizar modificaciones');
-    }
+    // Verificar permiso de actualización
+    PermissionUtils.verificarPermisoActualizacion(user.rol);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -284,6 +269,11 @@ export class ModificacionesService {
 
       if (!modificacion) {
         throw new NotFoundException('Modificación no encontrada');
+      }
+
+      // Verificar acceso al contrato
+      if (!PermissionUtils.verificarAccesoContrato(user.cedula, user.rol, modificacion.contrato)) {
+        throw new ForbiddenException('No tiene acceso a esta modificación');
       }
 
       // Si se están actualizando las fechas, recalcular la duración
@@ -348,15 +338,11 @@ export class ModificacionesService {
 
   /**
    * Elimina una modificación
-   * 
-   * @param id - ID de la modificación a eliminar
-   * @param user - Usuario que realiza la petición
-   * @throws NotFoundException si la modificación no existe
-   * @throws ForbiddenException si el usuario no tiene acceso
    */
   async remove(id: number, user: RequestUser): Promise<void> {
+    // Solo los administradores pueden eliminar modificaciones
     if (user.rol !== RolUsuario.ADMIN) {
-      throw new ForbiddenException('No tiene permisos para eliminar modificaciones');
+      throw new ForbiddenException('Solo los administradores pueden eliminar modificaciones');
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -365,7 +351,8 @@ export class ModificacionesService {
 
     try {
       const modificacion = await queryRunner.manager.findOne(Modificacion, {
-        where: { id }
+        where: { id },
+        relations: ['contrato']
       });
 
       if (!modificacion) {
@@ -403,17 +390,15 @@ export class ModificacionesService {
 
   /**
    * Obtiene todas las modificaciones de un contrato
-   * 
-   * @param contratoId - ID del contrato
-   * @param user - Usuario que realiza la petición
-   * @returns Lista de modificaciones del contrato
-   * @throws ForbiddenException si el usuario no tiene acceso
    */
   async findByContrato(contratoId: number, user: RequestUser): Promise<ModificacionResponseDto[]> {
-    const hasAccess = await this.hasAccessToContract(user, contratoId);
-    if (!hasAccess) {
-      throw new ForbiddenException('No tiene acceso a las modificaciones de este contrato');
-    }
+    // Verificar acceso al contrato
+    await PermissionUtils.verificarAccesoContratoById(
+      contratoId,
+      user.cedula,
+      user.rol,
+      this.contratoRepository
+    );
 
     const modificaciones = await this.modificacionRepository.find({
       where: { contratoId },

@@ -20,21 +20,44 @@ export class AdicionResponseDto {
   contratoId: number;
 
   /**
+   * Información resumida del contrato asociado
+   */
+  @ApiProperty({ 
+    description: 'Información resumida del contrato asociado',
+    required: false
+  })
+  contrato?: {
+    numeroContrato: string;
+    identificadorSimple: string;
+    objeto: string;
+    valorTotal: number;
+  };
+
+  /**
    * Valor de la adición presupuestal
    */
-  @ApiProperty({ description: 'Valor de la adición presupuestal' })
+  @ApiProperty({ 
+    description: 'Valor de la adición presupuestal',
+    example: 150000000
+  })
   valorAdicion: number;
 
   /**
    * Fecha de la adición
    */
-  @ApiProperty({ description: 'Fecha de la adición' })
+  @ApiProperty({ 
+    description: 'Fecha de la adición',
+    example: '2024-03-15'
+  })
   fecha: Date;
 
   /**
    * Fecha de creación del registro
    */
-  @ApiProperty({ description: 'Fecha de creación del registro' })
+  @ApiProperty({ 
+    description: 'Fecha de creación del registro',
+    example: '2024-03-15T10:30:00Z'
+  })
   createdAt: Date;
 
   /**
@@ -42,7 +65,8 @@ export class AdicionResponseDto {
    */
   @ApiProperty({ 
     description: 'Observaciones o justificación de la adición',
-    required: false 
+    required: false,
+    example: 'Se requiere adición presupuestal para cubrir actividades adicionales...'
   })
   observaciones?: string;
 } 

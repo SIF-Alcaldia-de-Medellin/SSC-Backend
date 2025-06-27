@@ -40,7 +40,7 @@ export class ActividadesService {
       throw new NotFoundException(`No se encontró el CUO con ID ${cuoId}`);
     }
 
-    await PermissionUtils.verificarAccesoEntidad(
+    await PermissionUtils.verificarAccesoContratoById(
       cuo.contrato.id,
       usuarioCedula,
       usuarioRol,
@@ -104,22 +104,24 @@ export class ActividadesService {
    * Obtiene todas las actividades según los permisos del usuario
    */
   async findAll(usuarioCedula: string, usuarioRol: RolUsuario): Promise<ActividadResponseDto[]> {
-    let actividades: Actividad[];
+    // Verificar permiso de visualización
+    PermissionUtils.verificarPermisoVisualizacion(usuarioRol);
 
     if (usuarioRol === RolUsuario.ADMIN) {
-      // Los administradores pueden ver todas las actividades
-      actividades = await this.actividadRepository.find({
+      const actividades = await this.actividadRepository.find({
         relations: ['cuo', 'cuo.contrato']
       });
-    } else {
-      // Los supervisores solo ven las actividades de sus contratos
-      actividades = await this.actividadRepository
-        .createQueryBuilder('actividad')
-        .innerJoinAndSelect('actividad.cuo', 'cuo')
-        .innerJoinAndSelect('cuo.contrato', 'contrato')
-        .where('contrato.usuarioCedula = :usuarioCedula', { usuarioCedula })
-        .getMany();
+      return actividades.map(actividad => this.toResponseDto(actividad));
     }
+
+    // Para supervisores, solo retornar las actividades de sus contratos
+    const actividades = await this.actividadRepository
+      .createQueryBuilder('actividad')
+      .innerJoinAndSelect('actividad.cuo', 'cuo')
+      .innerJoinAndSelect('cuo.contrato', 'contrato')
+      .where('contrato.usuarioCedula = :usuarioCedula', { usuarioCedula })
+      .orderBy('actividad.id', 'ASC')
+      .getMany();
 
     return actividades.map(actividad => this.toResponseDto(actividad));
   }
@@ -142,7 +144,7 @@ export class ActividadesService {
     }
 
     // Verificar acceso al contrato relacionado a través del CUO
-    await PermissionUtils.verificarAccesoEntidad(
+    await PermissionUtils.verificarAccesoContratoById(
       actividad.cuo.contrato.id,
       usuarioCedula,
       usuarioRol,
@@ -174,7 +176,7 @@ export class ActividadesService {
     }
 
     // Verificar acceso al contrato actual
-    await PermissionUtils.verificarAccesoEntidad(
+    await PermissionUtils.verificarAccesoContratoById(
       actividad.cuo.contrato.id,
       usuarioCedula,
       usuarioRol,
@@ -212,7 +214,7 @@ export class ActividadesService {
     }
 
     // Verificar acceso al contrato relacionado
-    await PermissionUtils.verificarAccesoEntidad(
+    await PermissionUtils.verificarAccesoContratoById(
       actividad.cuo.contrato.id,
       usuarioCedula,
       usuarioRol,

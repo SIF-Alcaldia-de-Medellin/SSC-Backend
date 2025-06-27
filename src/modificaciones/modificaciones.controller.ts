@@ -25,7 +25,7 @@ export class ModificacionesController {
    * @returns La modificación creada
    */
   @Post()
-  @Roles(RolUsuario.ADMIN)
+  @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
   @ApiOperation({ summary: 'Crear una nueva modificación contractual' })
   @ApiResponse({ 
     status: 201, 
@@ -34,7 +34,7 @@ export class ModificacionesController {
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso al contrato especificado' })
   async create(
     @Body() createModificacionDto: CreateModificacionDto,
     @Request() req
@@ -52,11 +52,10 @@ export class ModificacionesController {
   @ApiOperation({ summary: 'Obtener todas las modificaciones' })
   @ApiResponse({ 
     status: 200,
-    description: 'Lista de modificaciones',
+    description: 'Lista de modificaciones. Para supervisores, solo muestra las modificaciones de sus contratos.',
     type: [ModificacionResponseDto]
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
   findAll(@Request() req): Promise<ModificacionResponseDto[]> {
     return this.modificacionesService.findAll(req.user);
   }
@@ -76,7 +75,7 @@ export class ModificacionesController {
     type: ModificacionResponseDto
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a esta modificación' })
   @ApiResponse({ status: 404, description: 'Modificación no encontrada' })
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -93,7 +92,7 @@ export class ModificacionesController {
    * @returns La modificación actualizada
    */
   @Patch(':id')
-  @Roles(RolUsuario.ADMIN)
+  @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
   @ApiOperation({ summary: 'Actualizar una modificación' })
   @ApiResponse({ 
     status: 200,
@@ -102,7 +101,7 @@ export class ModificacionesController {
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a esta modificación' })
   @ApiResponse({ status: 404, description: 'Modificación no encontrada' })
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -122,7 +121,7 @@ export class ModificacionesController {
   @ApiOperation({ summary: 'Eliminar una modificación' })
   @ApiResponse({ status: 200, description: 'Modificación eliminada' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 403, description: 'Solo los administradores pueden eliminar modificaciones' })
   @ApiResponse({ status: 404, description: 'Modificación no encontrada' })
   remove(
     @Param('id', ParseIntPipe) id: number,
@@ -146,7 +145,7 @@ export class ModificacionesController {
     type: [ModificacionResponseDto]
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a este contrato' })
   @ApiResponse({ status: 404, description: 'No se encontraron modificaciones' })
   async findByContrato(
     @Param('id') contratoId: number,

@@ -9,7 +9,9 @@ import { CreateSeguimientoGeneralDto } from './dto/create-seguimiento-general.dt
 import { SeguimientoGeneralResponseDto } from './dto/seguimiento-general.response.dto';
 
 /**
- * Controlador para la gestión de seguimientos generales de contratos
+ * Controlador para la gestión de seguimientos generales de contratos.
+ * Permite a administradores y supervisores gestionar el seguimiento general de los contratos.
+ * Los supervisores solo pueden acceder y crear seguimientos para sus contratos asignados.
  */
 @ApiTags('Seguimiento General')
 @ApiBearerAuth('access-token')
@@ -19,19 +21,24 @@ export class SeguimientoGeneralController {
   constructor(private readonly seguimientoGeneralService: SeguimientoGeneralService) {}
 
   /**
-   * Crea un nuevo seguimiento general
+   * Crea un nuevo seguimiento general.
+   * Los supervisores solo pueden crear seguimientos para sus contratos asignados.
    */
   @Post()
-  @Roles(RolUsuario.ADMIN)
-  @ApiOperation({ summary: 'Crear un nuevo seguimiento general' })
+  @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
+  @ApiOperation({ 
+    summary: 'Crear un nuevo seguimiento general',
+    description: 'Crea un nuevo seguimiento general para un contrato. Los supervisores solo pueden crear seguimientos para sus contratos asignados.'
+  })
   @ApiResponse({ 
     status: 201, 
     description: 'Seguimiento general creado exitosamente',
     type: SeguimientoGeneralResponseDto
   })
-  @ApiResponse({ status: 400, description: 'Datos inválidos' })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos en la solicitud' })
+  @ApiResponse({ status: 401, description: 'No autorizado - Token JWT inválido o expirado' })
+  @ApiResponse({ status: 403, description: 'Prohibido - No tienes permisos para este contrato' })
+  @ApiResponse({ status: 404, description: 'No se encontró el contrato especificado' })
   create(
     @Request() req,
     @Body() createSeguimientoGeneralDto: CreateSeguimientoGeneralDto
@@ -40,18 +47,22 @@ export class SeguimientoGeneralController {
   }
 
   /**
-   * Obtiene un seguimiento específico por su ID
+   * Obtiene un seguimiento específico por su ID.
+   * Los supervisores solo pueden ver seguimientos de sus contratos asignados.
    */
   @Get(':id')
   @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
-  @ApiOperation({ summary: 'Obtener un seguimiento por ID' })
+  @ApiOperation({ 
+    summary: 'Obtener un seguimiento por ID',
+    description: 'Retorna un seguimiento específico por su ID. Los supervisores solo pueden ver seguimientos de sus contratos asignados.'
+  })
   @ApiResponse({ 
     status: 200, 
     description: 'Seguimiento encontrado',
     type: SeguimientoGeneralResponseDto
   })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 401, description: 'No autorizado - Token JWT inválido o expirado' })
+  @ApiResponse({ status: 403, description: 'Prohibido - No tienes permisos para este contrato' })
   @ApiResponse({ status: 404, description: 'Seguimiento no encontrado' })
   findOne(
     @Request() req,
@@ -61,11 +72,15 @@ export class SeguimientoGeneralController {
   }
 
   /**
-   * Obtiene todos los seguimientos de un contrato por su ID
+   * Obtiene todos los seguimientos de un contrato por su ID.
+   * Los supervisores solo pueden ver seguimientos de sus contratos asignados.
    */
   @Get('contrato/:id')
   @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
-  @ApiOperation({ summary: 'Obtener seguimientos por ID de contrato' })
+  @ApiOperation({ 
+    summary: 'Obtener seguimientos por ID de contrato',
+    description: 'Retorna todos los seguimientos de un contrato específico. Los supervisores solo pueden ver seguimientos de sus contratos asignados.'
+  })
   @ApiParam({
     name: 'id',
     description: 'ID del contrato',
@@ -76,8 +91,8 @@ export class SeguimientoGeneralController {
     description: 'Lista de seguimientos del contrato',
     type: [SeguimientoGeneralResponseDto]
   })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 401, description: 'No autorizado - Token JWT inválido o expirado' })
+  @ApiResponse({ status: 403, description: 'Prohibido - No tienes permisos para este contrato' })
   @ApiResponse({ status: 404, description: 'No se encontraron seguimientos' })
   findByContrato(
     @Request() req,
@@ -87,11 +102,15 @@ export class SeguimientoGeneralController {
   }
 
   /**
-   * Obtiene todos los seguimientos de un contrato por su número
+   * Obtiene todos los seguimientos de un contrato por su número.
+   * Los supervisores solo pueden ver seguimientos de sus contratos asignados.
    */
   @Get('contrato/numero/:numeroContrato')
   @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
-  @ApiOperation({ summary: 'Obtener seguimientos por número de contrato' })
+  @ApiOperation({ 
+    summary: 'Obtener seguimientos por número de contrato',
+    description: 'Retorna todos los seguimientos de un contrato específico por su número. Los supervisores solo pueden ver seguimientos de sus contratos asignados.'
+  })
   @ApiParam({
     name: 'numeroContrato',
     description: 'Número del contrato (ejemplo: 460000000)',
@@ -102,8 +121,8 @@ export class SeguimientoGeneralController {
     description: 'Lista de seguimientos del contrato',
     type: [SeguimientoGeneralResponseDto]
   })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
+  @ApiResponse({ status: 401, description: 'No autorizado - Token JWT inválido o expirado' })
+  @ApiResponse({ status: 403, description: 'Prohibido - No tienes permisos para este contrato' })
   @ApiResponse({ status: 404, description: 'No se encontraron seguimientos' })
   findByNumeroContrato(
     @Request() req,

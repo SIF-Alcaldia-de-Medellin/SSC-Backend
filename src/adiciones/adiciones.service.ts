@@ -6,6 +6,7 @@ import { Contrato } from '../contratos/contrato.entity';
 import { CreateAdicionDto } from './dto/create-adicion.dto';
 import { AdicionResponseDto } from './dto/adicion.response.dto';
 import { RolUsuario } from '../usuarios/usuario.entity';
+import { PermissionUtils } from '../auth/utils/permission.utils';
 
 interface RequestUser {
   cedula: string;
@@ -26,63 +27,35 @@ export class AdicionesService {
   ) {}
 
   /**
-   * Verifica si un usuario tiene acceso a un contrato específico
-   * @param user - Usuario que realiza la petición
-   * @param contratoId - ID del contrato a verificar
-   * @returns true si tiene acceso, false si no
-   */
-  private async hasAccessToContract(user: RequestUser, contratoId: number): Promise<boolean> {
-    return user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR;
-  }
-
-  /**
-   * Verifica si un usuario tiene acceso a una adición específica
-   * @param user - Usuario que realiza la petición
-   * @param adicionId - ID de la adición a verificar
-   * @returns true si tiene acceso, false si no
-   */
-  private async hasAccessToAdicion(user: RequestUser, adicionId: number): Promise<boolean> {
-    return user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR;
-  }
-
-  /**
    * Transforma una entidad Adicion en un DTO de respuesta
    */
   private toResponseDto(adicion: Adicion): AdicionResponseDto {
     const { contrato, ...adicionData } = adicion;
-    return adicionData as AdicionResponseDto;
-  }
-
-  /**
-   * Actualiza el valor total del contrato
-   * @param contratoId - ID del contrato
-   * @param valorAdicion - Valor de la adición
-   */
-  private async actualizarValorTotalContrato(contratoId: number, valorAdicion: number): Promise<void> {
-    const contrato = await this.contratoRepository.findOne({
-      where: { id: contratoId }
-    });
-
-    if (!contrato) {
-      throw new NotFoundException(`No se encontró el contrato con ID ${contratoId}`);
-    }
-
-    // Actualizar el valor total sumando la adición
-    contrato.valorTotal = Number(contrato.valorTotal) + Number(valorAdicion);
-    await this.contratoRepository.save(contrato);
+    return {
+      ...adicionData,
+      contrato: contrato ? {
+        numeroContrato: contrato.numeroContrato,
+        identificadorSimple: contrato.identificadorSimple,
+        objeto: contrato.objeto,
+        valorTotal: contrato.valorTotal
+      } : undefined
+    };
   }
 
   /**
    * Crea una nueva adición presupuestal y actualiza el valor total del contrato
-   * 
-   * @param createAdicionDto - Datos de la adición a crear
-   * @param user - Usuario que realiza la petición
-   * @returns La adición creada
    */
   async create(createAdicionDto: CreateAdicionDto, user: RequestUser): Promise<AdicionResponseDto> {
-    if (user.rol !== RolUsuario.ADMIN && user.rol !== RolUsuario.SUPERVISOR) {
-      throw new ForbiddenException('No tiene permisos para crear adiciones');
-    }
+    // Verificar permiso de creación
+    PermissionUtils.verificarPermisoCreacion(user.rol);
+
+    // Verificar acceso al contrato
+    await PermissionUtils.verificarAccesoContratoById(
+      createAdicionDto.contratoId,
+      user.cedula,
+      user.rol,
+      this.contratoRepository
+    );
 
     // Usar transacción para asegurar la consistencia de los datos
     const queryRunner = this.dataSource.createQueryRunner();
@@ -131,28 +104,37 @@ export class AdicionesService {
   }
 
   /**
-   * Obtiene todas las adiciones
-   * 
-   * @param user - Usuario que realiza la petición
-   * @returns Lista de adiciones
+   * Obtiene todas las adiciones según los permisos del usuario
    */
   async findAll(user: RequestUser): Promise<AdicionResponseDto[]> {
-    const adiciones = await this.adicionRepository.find({
-      relations: ['contrato']
-    });
+    // Verificar permiso de visualización
+    PermissionUtils.verificarPermisoVisualizacion(user.rol);
+
+    if (user.rol === RolUsuario.ADMIN) {
+      const adiciones = await this.adicionRepository.find({
+        relations: ['contrato']
+      });
+      return adiciones.map(adicion => this.toResponseDto(adicion));
+    }
+
+    // Para supervisores, solo retornar las adiciones de sus contratos
+    const adiciones = await this.adicionRepository
+      .createQueryBuilder('adicion')
+      .leftJoinAndSelect('adicion.contrato', 'contrato')
+      .where('contrato.usuarioCedula = :usuarioCedula', { usuarioCedula: user.cedula })
+      .orderBy('adicion.createdAt', 'DESC')
+      .getMany();
+
     return adiciones.map(adicion => this.toResponseDto(adicion));
   }
 
   /**
    * Obtiene una adición por su ID
-   * 
-   * @param id - ID de la adición
-   * @param user - Usuario que realiza la petición
-   * @returns La adición encontrada
-   * @throws NotFoundException si la adición no existe
-   * @throws ForbiddenException si el usuario no tiene acceso
    */
   async findOne(id: number, user: RequestUser): Promise<AdicionResponseDto> {
+    // Verificar permiso de visualización
+    PermissionUtils.verificarPermisoVisualizacion(user.rol);
+
     const adicion = await this.adicionRepository.findOne({
       where: { id },
       relations: ['contrato']
@@ -162,8 +144,8 @@ export class AdicionesService {
       throw new NotFoundException('Adición no encontrada');
     }
 
-    const hasAccess = await this.hasAccessToAdicion(user, id);
-    if (!hasAccess) {
+    // Verificar acceso al contrato
+    if (!PermissionUtils.verificarAccesoContrato(user.cedula, user.rol, adicion.contrato)) {
       throw new ForbiddenException('No tiene acceso a esta adición');
     }
 
@@ -172,18 +154,10 @@ export class AdicionesService {
 
   /**
    * Actualiza una adición
-   * 
-   * @param id - ID de la adición a actualizar
-   * @param updateAdicionDto - Datos actualizados de la adición
-   * @param user - Usuario que realiza la petición
-   * @returns La adición actualizada
-   * @throws NotFoundException si la adición no existe
-   * @throws ForbiddenException si el usuario no tiene acceso
    */
   async update(id: number, updateAdicionDto: Partial<CreateAdicionDto>, user: RequestUser): Promise<AdicionResponseDto> {
-    if (user.rol !== RolUsuario.ADMIN && user.rol !== RolUsuario.SUPERVISOR) {
-      throw new ForbiddenException('No tiene permisos para actualizar adiciones');
-    }
+    // Verificar permiso de actualización
+    PermissionUtils.verificarPermisoActualizacion(user.rol);
 
     // Si se está actualizando el valor de la adición, necesitamos una transacción
     if (updateAdicionDto.valorAdicion !== undefined) {
@@ -193,11 +167,17 @@ export class AdicionesService {
 
       try {
         const adicion = await queryRunner.manager.findOne(Adicion, {
-          where: { id }
+          where: { id },
+          relations: ['contrato']
         });
 
         if (!adicion) {
           throw new NotFoundException('Adición no encontrada');
+        }
+
+        // Verificar acceso al contrato
+        if (!PermissionUtils.verificarAccesoContrato(user.cedula, user.rol, adicion.contrato)) {
+          throw new ForbiddenException('No tiene acceso a esta adición');
         }
 
         // Calcular la diferencia en el valor
@@ -250,6 +230,11 @@ export class AdicionesService {
       throw new NotFoundException('Adición no encontrada');
     }
 
+    // Verificar acceso al contrato
+    if (!PermissionUtils.verificarAccesoContrato(user.cedula, user.rol, adicion.contrato)) {
+      throw new ForbiddenException('No tiene acceso a esta adición');
+    }
+
     Object.assign(adicion, updateAdicionDto);
     const updatedAdicion = await this.adicionRepository.save(adicion);
     return this.toResponseDto(updatedAdicion);
@@ -257,15 +242,11 @@ export class AdicionesService {
 
   /**
    * Elimina una adición y actualiza el valor total del contrato
-   * 
-   * @param id - ID de la adición a eliminar
-   * @param user - Usuario que realiza la petición
-   * @throws NotFoundException si la adición no existe
-   * @throws ForbiddenException si el usuario no tiene acceso
    */
   async remove(id: number, user: RequestUser): Promise<void> {
+    // Solo los administradores pueden eliminar adiciones
     if (user.rol !== RolUsuario.ADMIN) {
-      throw new ForbiddenException('No tiene permisos para eliminar adiciones');
+      throw new ForbiddenException('Solo los administradores pueden eliminar adiciones');
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -274,7 +255,8 @@ export class AdicionesService {
 
     try {
       const adicion = await queryRunner.manager.findOne(Adicion, {
-        where: { id }
+        where: { id },
+        relations: ['contrato']
       });
 
       if (!adicion) {
@@ -307,17 +289,15 @@ export class AdicionesService {
 
   /**
    * Obtiene todas las adiciones de un contrato
-   * 
-   * @param contratoId - ID del contrato
-   * @param user - Usuario que realiza la petición
-   * @returns Lista de adiciones del contrato
-   * @throws ForbiddenException si el usuario no tiene acceso
    */
   async findByContrato(contratoId: number, user: RequestUser): Promise<AdicionResponseDto[]> {
-    const hasAccess = await this.hasAccessToContract(user, contratoId);
-    if (!hasAccess) {
-      throw new ForbiddenException('No tiene acceso a las adiciones de este contrato');
-    }
+    // Verificar acceso al contrato
+    await PermissionUtils.verificarAccesoContratoById(
+      contratoId,
+      user.cedula,
+      user.rol,
+      this.contratoRepository
+    );
 
     const adiciones = await this.adicionRepository.find({
       where: { contratoId },

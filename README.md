@@ -1,98 +1,141 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Sistema de Seguimiento de Contratos (SSC) - Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Descripción
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Backend del Sistema de Seguimiento de Contratos, desarrollado con NestJS. Este sistema permite la gestión y seguimiento de contratos de obras públicas, incluyendo sus modificaciones, adiciones presupuestales y seguimiento de actividades.
 
-## Description
+## Requisitos Previos
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Antes de comenzar, asegúrate de tener instalado:
 
-## Project setup
+- Node.js (v18 o superior)
+- npm (v9 o superior)
+- PostgreSQL (v15 o superior)
 
+## Configuración del Proyecto
+
+1. Clona el repositorio:
 ```bash
-$ npm install
+git clone <url-del-repositorio>
+cd SSC-Backend
 ```
 
-## Compile and run the project
-
+2. Instala las dependencias:
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
+3. Configura las variables de entorno:
 
-```bash
-# unit tests
-$ npm run test
+Crea un archivo `.env` en la raíz del proyecto con la siguiente estructura:
+```env
+# Configuración del servidor
+PORT=3000
+NODE_ENV=development
 
-# e2e tests
-$ npm run test:e2e
+# Configuración de la base de datos
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=tu_usuario
+DB_PASSWORD=tu_contraseña
+DB_DATABASE=ssc_db
+DB_SCHEMA=SSC
 
-# test coverage
-$ npm run test:cov
+# Configuración de JWT
+JWT_SECRET=tu_clave_secreta_jwt
+JWT_EXPIRATION=24h
 ```
 
-## Deployment
+4. Configura la base de datos:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+- Crea una base de datos PostgreSQL con el nombre especificado en `DB_DATABASE`
+- Crea el schema especificado en `DB_SCHEMA`
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+5. Ejecuta las migraciones:
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run migration:run
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+6. (Opcional) Ejecuta el seeder para datos iniciales:
+```bash
+npm run seed
+```
 
-## Resources
+## Ejecución del Proyecto
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+# Modo desarrollo
+npm run start:dev
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Modo debug
+npm run start:debug
 
-## Support
+# Modo producción
+npm run start:prod
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Pruebas
 
-## Stay in touch
+```bash
+# Pruebas unitarias
+npm run test
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+# Pruebas e2e
+npm run test:e2e
 
-## License
+# Cobertura de pruebas
+npm run test:cov
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Estructura del Proyecto
+
+```
+src/
+├── actividades/         # Gestión de actividades de obra
+├── adiciones/          # Gestión de adiciones presupuestales
+├── auth/              # Autenticación y autorización
+├── contratos/         # Gestión de contratos
+├── cuo/               # Gestión de CUO (Código Único de Obra)
+├── database/          # Configuración y migraciones de base de datos
+├── modificaciones/    # Gestión de modificaciones contractuales
+├── seguimiento-*/     # Módulos de seguimiento
+└── usuarios/          # Gestión de usuarios
+```
+
+## Roles y Permisos
+
+El sistema maneja dos roles principales:
+
+- **ADMIN**: Acceso total al sistema y gestión de usuarios
+- **SUPERVISOR**: Gestión y seguimiento de obras
+
+## Documentación API
+
+La documentación de la API está disponible en la ruta `/api` cuando el servidor está en ejecución. Esta documentación está generada con Swagger y permite probar los endpoints directamente desde el navegador.
+
+## Comandos Útiles
+
+```bash
+# Formatear código
+npm run format
+
+# Verificar linting
+npm run lint
+
+# Generar nueva migración
+npm run migration:generate nombre_migracion
+
+# Crear migración en blanco
+npm run migration:create nombre_migracion
+
+# Revertir última migración
+npm run migration:revert
+```
+
+## Soporte
+
+Para reportar problemas o solicitar ayuda, por favor crea un issue en el repositorio del proyecto.
+
+## Licencia
+
+Este proyecto está licenciado bajo [LICENCIA]. Consulta el archivo LICENSE para más detalles.

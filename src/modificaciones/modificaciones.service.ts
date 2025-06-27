@@ -33,15 +33,7 @@ export class ModificacionesService {
    * @returns true si tiene acceso, false si no
    */
   private async hasAccessToContract(user: RequestUser, contratoId: number): Promise<boolean> {
-    if (user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR) {
-      return true;
-    }
-
-    const contrato = await this.contratoRepository.findOne({
-      where: { id: contratoId }
-    });
-
-    return contrato?.usuarioCedula === user.cedula;
+    return user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR;
   }
 
   /**
@@ -51,20 +43,7 @@ export class ModificacionesService {
    * @returns true si tiene acceso, false si no
    */
   private async hasAccessToModificacion(user: RequestUser, modificacionId: number): Promise<boolean> {
-    if (user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR) {
-      return true;
-    }
-
-    const modificacion = await this.modificacionRepository.findOne({
-      where: { id: modificacionId },
-      relations: ['contrato']
-    });
-
-    if (!modificacion || !modificacion.contrato) {
-      return false;
-    }
-
-    return modificacion.contrato.usuarioCedula === user.cedula;
+    return user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR;
   }
 
   /**
@@ -242,16 +221,6 @@ export class ModificacionesService {
    * @returns Lista de modificaciones
    */
   async findAll(user: RequestUser): Promise<ModificacionResponseDto[]> {
-    if (user.rol === RolUsuario.CONTRATISTA) {
-      const modificaciones = await this.modificacionRepository
-        .createQueryBuilder('modificacion')
-        .leftJoinAndSelect('modificacion.contrato', 'contrato')
-        .where('contrato.usuarioCedula = :cedula', { cedula: user.cedula })
-        .orderBy('modificacion.createdAt', 'DESC')
-        .getMany();
-      return modificaciones.map(modificacion => this.toResponseDto(modificacion));
-    }
-
     const modificaciones = await this.modificacionRepository.find({
       relations: ['contrato'],
       order: {

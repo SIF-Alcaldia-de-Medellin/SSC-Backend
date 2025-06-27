@@ -32,15 +32,7 @@ export class AdicionesService {
    * @returns true si tiene acceso, false si no
    */
   private async hasAccessToContract(user: RequestUser, contratoId: number): Promise<boolean> {
-    if (user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR) {
-      return true;
-    }
-
-    const contrato = await this.contratoRepository.findOne({
-      where: { id: contratoId }
-    });
-
-    return contrato?.usuarioCedula === user.cedula;
+    return user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR;
   }
 
   /**
@@ -50,20 +42,7 @@ export class AdicionesService {
    * @returns true si tiene acceso, false si no
    */
   private async hasAccessToAdicion(user: RequestUser, adicionId: number): Promise<boolean> {
-    if (user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR) {
-      return true;
-    }
-
-    const adicion = await this.adicionRepository.findOne({
-      where: { id: adicionId },
-      relations: ['contrato']
-    });
-
-    if (!adicion || !adicion.contrato) {
-      return false;
-    }
-
-    return adicion.contrato.usuarioCedula === user.cedula;
+    return user.rol === RolUsuario.ADMIN || user.rol === RolUsuario.SUPERVISOR;
   }
 
   /**
@@ -158,15 +137,6 @@ export class AdicionesService {
    * @returns Lista de adiciones
    */
   async findAll(user: RequestUser): Promise<AdicionResponseDto[]> {
-    if (user.rol === RolUsuario.CONTRATISTA) {
-      const adiciones = await this.adicionRepository
-        .createQueryBuilder('adicion')
-        .leftJoinAndSelect('adicion.contrato', 'contrato')
-        .where('contrato.usuarioCedula = :cedula', { cedula: user.cedula })
-        .getMany();
-      return adiciones.map(adicion => this.toResponseDto(adicion));
-    }
-
     const adiciones = await this.adicionRepository.find({
       relations: ['contrato']
     });

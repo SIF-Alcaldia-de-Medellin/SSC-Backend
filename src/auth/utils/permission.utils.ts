@@ -15,8 +15,7 @@ export class PermissionUtils {
     usuarioRol: RolUsuario,
     contrato: Contrato
   ): boolean {
-    if (usuarioRol === RolUsuario.ADMIN) return true;
-    return contrato.usuarioCedula === usuarioCedula;
+    return usuarioRol === RolUsuario.ADMIN || usuarioRol === RolUsuario.SUPERVISOR;
   }
 
   /**
@@ -28,18 +27,10 @@ export class PermissionUtils {
     usuarioRol: RolUsuario,
     contratoRepository: Repository<Contrato>
   ): Promise<void> {
-    // Los administradores tienen acceso total
-    if (usuarioRol === RolUsuario.ADMIN) return;
+    // Los administradores y supervisores tienen acceso total
+    if (usuarioRol === RolUsuario.ADMIN || usuarioRol === RolUsuario.SUPERVISOR) return;
 
-    // Buscar el contrato relacionado
-    const contrato = await contratoRepository.findOne({
-      where: { id: contratoId }
-    });
-
-    // Si el contrato no existe o el usuario no tiene acceso, lanzar error
-    if (!contrato || contrato.usuarioCedula !== usuarioCedula) {
-      throw new ForbiddenException('No tienes acceso a este recurso');
-    }
+    throw new ForbiddenException('No tienes acceso a este recurso');
   }
 
   /**

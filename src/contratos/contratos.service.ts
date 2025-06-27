@@ -20,8 +20,7 @@ export class ContratosService {
    * Verifica si un usuario tiene acceso a un contrato
    */
   private verificarAccesoContrato(usuarioCedula: string, usuarioRol: RolUsuario, contrato: Contrato): boolean {
-    if (usuarioRol === RolUsuario.ADMIN) return true;
-    return contrato.usuarioCedula === usuarioCedula;
+    return usuarioRol === RolUsuario.ADMIN || usuarioRol === RolUsuario.SUPERVISOR;
   }
 
   /**
@@ -74,14 +73,7 @@ export class ContratosService {
    * @returns Lista de contratos
    */
   async findAll(usuarioCedula: string, usuarioRol: RolUsuario): Promise<ContratoResponseDto[]> {
-    if (usuarioRol === RolUsuario.ADMIN) {
-      const contratos = await this.contratoRepository.find();
-      return contratos.map(contrato => this.toResponseDto(contrato));
-    }
-
-    const contratos = await this.contratoRepository.find({
-      where: { usuarioCedula }
-    });
+    const contratos = await this.contratoRepository.find();
     return contratos.map(contrato => this.toResponseDto(contrato));
   }
 

@@ -88,22 +88,9 @@ export class CuoService {
    * @returns Lista de CUO
    */
   async findAll(usuarioCedula: string, usuarioRol: RolUsuario): Promise<CuoResponseDto[]> {
-    let cuos: Cuo[];
-
-    if (usuarioRol === RolUsuario.ADMIN) {
-      // Los administradores pueden ver todos los CUO
-      cuos = await this.cuoRepository.find({
-        relations: ['contrato']
-      });
-    } else {
-      // Los supervisores solo ven los CUO de sus contratos
-      cuos = await this.cuoRepository
-        .createQueryBuilder('cuo')
-        .innerJoinAndSelect('cuo.contrato', 'contrato')
-        .where('contrato.usuarioCedula = :usuarioCedula', { usuarioCedula })
-        .getMany();
-    }
-
+    const cuos = await this.cuoRepository.find({
+      relations: ['contrato']
+    });
     return cuos.map(cuo => this.toResponseDto(cuo));
   }
 

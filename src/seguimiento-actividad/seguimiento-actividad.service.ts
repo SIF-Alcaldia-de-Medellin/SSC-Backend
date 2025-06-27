@@ -34,13 +34,11 @@ export class SeguimientoActividadService {
       throw new NotFoundException(`No se encontró la actividad con ID ${actividadId}`);
     }
 
-    if (usuarioRol === RolUsuario.ADMIN) {
+    if (usuarioRol === RolUsuario.ADMIN || usuarioRol === RolUsuario.SUPERVISOR) {
       return;
     }
 
-    if (actividad.cuo.contrato.usuarioCedula !== usuarioCedula) {
-      throw new ForbiddenException('No tiene acceso a esta actividad');
-    }
+    throw new ForbiddenException('No tiene acceso a esta actividad');
   }
 
   /**

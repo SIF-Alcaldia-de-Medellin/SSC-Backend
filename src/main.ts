@@ -37,7 +37,7 @@ async function bootstrap() {
   }));
 
   // Configuración de Swagger
-  const config = new DocumentBuilder()
+  const builder = new DocumentBuilder()
     .setTitle('API Sistema de Seguimiento de Contratos (SSC)')
     .setDescription(`
     API REST para el Sistema de Seguimiento de Contratos de obra pública de la Alcaldía de Medellín.
@@ -75,21 +75,26 @@ async function bootstrap() {
       'https://medellin.gov.co',
       'desarrollo@medellin.gov.co'
     )
-    .setLicense('MIT', 'https://opensource.org/licenses/MIT')
-    .addServer('http://localhost:3000', 'Servidor de desarrollo')
-    .addServer('https://api-ssc.medellin.gov.co', 'Servidor de producción')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Ingresa tu token JWT (se obtiene al hacer login)',
-        in: 'header',
-      },
-      'access-token',
-    )
-    .build();
+    .setLicense('MIT', 'https://opensource.org/licenses/MIT');
+
+  // Solo agregar servidor en desarrollo
+  if (process.env.NODE_ENV !== 'production') {
+    builder.addServer('http://localhost:3000', 'Servidor de desarrollo');
+  }
+
+  builder.addBearerAuth(
+    {
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      name: 'JWT',
+      description: 'Ingresa tu token JWT (se obtiene al hacer login)',
+      in: 'header',
+    },
+    'access-token',
+  );
+
+  const config = builder.build();
 
   const document = SwaggerModule.createDocument(app, config);
   

@@ -8,10 +8,33 @@ async function bootstrap() {
   // Cargar variables de entorno
   dotenvConfig();
   
+  // Validar variables de entorno críticas
+  const requiredEnvVars = ['DB_HOST', 'DB_USERNAME', 'DB_PASSWORD', 'DB_DATABASE'];
+  const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+  
+  if (missingEnvVars.length > 0) {
+    console.error(`❌ Error: Faltan las siguientes variables de entorno: ${missingEnvVars.join(', ')}`);
+    process.exit(1);
+  }
+  
   const app = await NestFactory.create(AppModule);
 
+  // Configuración de CORS
+  app.enableCors({
+    origin: process.env.NODE_ENV === 'production' 
+      ? ['https://ssc.medellin.gov.co', 'https://admin-ssc.medellin.gov.co']
+      : true, // En desarrollo permite cualquier origen
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    credentials: true,
+  });
+
   // Configuración de validación global
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }));
 
   // Configuración de Swagger
   const config = new DocumentBuilder()
@@ -97,5 +120,6 @@ async function bootstrap() {
   console.log(`🚀 Aplicación corriendo en puerto ${port}`);
   console.log(`📚 Documentación disponible en http://localhost:${port}/docs`);
   console.log(`🔍 Health check en http://localhost:${port}/health`);
+  console.log(`ℹ️  Info de la API en http://localhost:${port}/info`);
 }
 bootstrap();

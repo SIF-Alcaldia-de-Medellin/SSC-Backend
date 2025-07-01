@@ -26,7 +26,8 @@
     "migration:run": "npm run typeorm -- migration:run -d ./ormconfig.ts",
     "migration:revert": "npm run typeorm -- migration:revert -d ./ormconfig.ts",
     "typeorm": "ts-node ./node_modules/typeorm/cli.js",
-    "seed": "ts-node ./scripts/seed.ts"
+    "seed": "ts-node ./scripts/seed.ts",
+    "create-admin": "ts-node ./scripts/create-admin.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

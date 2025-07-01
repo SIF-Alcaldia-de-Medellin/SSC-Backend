@@ -10,6 +10,8 @@ import { CuoModule } from './cuo/cuo.module';
 import { ActividadesModule } from './actividades/actividades.module';
 import { SeguimientoGeneralModule } from './seguimiento-general/seguimiento-general.module';
 import { SeguimientoActividadModule } from './seguimiento-actividad/seguimiento-actividad.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 /**
  * Módulo principal de la aplicación
@@ -47,7 +49,7 @@ import { SeguimientoActividadModule } from './seguimiento-actividad/seguimiento-
     SeguimientoGeneralModule,
     SeguimientoActividadModule,
   ],
-  controllers: [],
-  providers: [],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

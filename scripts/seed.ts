@@ -1,13 +1,31 @@
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 import * as bcrypt from 'bcrypt';
-import dataSource from '../ormconfig';
 import { Usuario, RolUsuario } from '../src/usuarios/usuario.entity';
 import { Contrato, EstadoContrato } from '../src/contratos/contrato.entity';
 import { Cuo } from '../src/cuo/cuo.entity';
 import { Actividad } from '../src/actividades/actividad.entity';
 
 config();
+
+/**
+ * Configuración de DataSource para el script de seed
+ */
+const dataSource = new DataSource({
+  type: 'postgres',
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT || '5432', 10),
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_DATABASE,
+  schema: process.env.DB_SCHEMA,
+  entities: [Usuario, Contrato, Cuo, Actividad],
+  synchronize: false,
+  logging: false,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 /**
  * Datos iniciales para usuarios del sistema
@@ -156,6 +174,18 @@ async function hashPassword(password: string): Promise<string> {
  */
 async function main() {
   try {
+    // Verificar variables de entorno
+    if (!process.env.DB_HOST || !process.env.DB_USERNAME || !process.env.DB_PASSWORD || !process.env.DB_DATABASE) {
+      console.error('❌ Error: Faltan variables de entorno de base de datos');
+      console.log('Asegúrate de tener configuradas: DB_HOST, DB_USERNAME, DB_PASSWORD, DB_DATABASE');
+      process.exit(1);
+    }
+
+    console.log('🔌 Conectando a la base de datos...');
+    console.log(`   Host: ${process.env.DB_HOST}`);
+    console.log(`   Database: ${process.env.DB_DATABASE}`);
+    console.log(`   Schema: ${process.env.DB_SCHEMA || 'public'}`);
+
     // Conectar a la base de datos
     await dataSource.initialize();
     console.log('✅ Conexión a base de datos establecida');
@@ -233,9 +263,16 @@ async function main() {
     console.log('   - Admin: admin@ssc.gov.co / Admin123!');
     console.log('   - Supervisor Norte: supervisor.norte@ssc.gov.co / Super123!');
     console.log('   - Supervisor Sur: supervisor.sur@ssc.gov.co / Super123!');
+    console.log('');
+    console.log('🚀 Ahora puedes hacer login con el usuario administrador:');
+    console.log('   POST /auth/login');
+    console.log('   { "email": "admin@ssc.gov.co", "password": "Admin123!" }');
 
   } catch (error) {
     console.error('❌ Error durante el seed:', error);
+    if (error.code === 'ECONNREFUSED') {
+      console.log('💡 Verifica que PostgreSQL esté ejecutándose y las credenciales sean correctas');
+    }
     process.exit(1);
   }
 }

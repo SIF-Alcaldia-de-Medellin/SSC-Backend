@@ -222,4 +222,35 @@ export class ContratosService {
     });
     return contratos.map(contrato => this.toResponseDto(contrato));
   }
+
+  /**
+   * Obtiene un contrato por su número
+   * 
+   * @param numeroContrato - Número del contrato
+   * @param usuarioCedula - Cédula del usuario
+   * @param usuarioRol - Rol del usuario
+   * @returns El contrato encontrado
+   * @throws NotFoundException si el contrato no existe
+   * @throws ForbiddenException si el usuario no tiene acceso al contrato
+   */
+  async findByNumero(numeroContrato: string, usuarioCedula: string, usuarioRol: RolUsuario): Promise<ContratoResponseDto> {
+    // Verificar permiso de visualización
+    PermissionUtils.verificarPermisoVisualizacion(usuarioRol);
+
+    const contrato = await this.contratoRepository.findOne({
+      where: { numeroContrato },
+      relations: ['supervisor']
+    });
+
+    if (!contrato) {
+      throw new NotFoundException('Contrato no encontrado');
+    }
+
+    // Verificar acceso al contrato
+    if (!PermissionUtils.verificarAccesoContrato(usuarioCedula, usuarioRol, contrato)) {
+      throw new ForbiddenException('No tienes acceso a este contrato');
+    }
+
+    return this.toResponseDto(contrato);
+  }
 } 

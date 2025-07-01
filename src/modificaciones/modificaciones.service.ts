@@ -79,9 +79,8 @@ export class ModificacionesService {
     modificacion: Modificacion,
     duracion: number
   ): Promise<void> {
-    // Las prórrogas y suspensiones afectan la fecha de terminación
-    if (modificacion.tipo === TipoModificacion.PRORROGA || 
-        modificacion.tipo === TipoModificacion.SUSPENSION) {
+    // Tanto las suspensiones como las prórrogas afectan la fecha de terminación (extienden el plazo)
+    if (modificacion.tipo === TipoModificacion.SUSPENSION || modificacion.tipo === TipoModificacion.PRORROGA) {
       contrato.fechaTerminacionActual = addDays(new Date(contrato.fechaTerminacionActual), duracion);
     }
   }
@@ -302,9 +301,8 @@ export class ModificacionesService {
           duracion: nuevaDuracion
         });
 
-        // Si es una prórroga o suspensión, actualizar la fecha de terminación del contrato
-        if (modificacion.tipo === TipoModificacion.PRORROGA || 
-            modificacion.tipo === TipoModificacion.SUSPENSION) {
+        // Si es una suspensión o prórroga, actualizar la fecha de terminación del contrato
+        if (modificacion.tipo === TipoModificacion.SUSPENSION || modificacion.tipo === TipoModificacion.PRORROGA) {
           const contrato = await queryRunner.manager.findOne(Contrato, {
             where: { id: modificacion.contratoId }
           });
@@ -359,9 +357,8 @@ export class ModificacionesService {
         throw new NotFoundException('Modificación no encontrada');
       }
 
-      // Si es una prórroga o suspensión, actualizar la fecha de terminación del contrato
-      if (modificacion.tipo === TipoModificacion.PRORROGA || 
-          modificacion.tipo === TipoModificacion.SUSPENSION) {
+      // Si es una suspensión o prórroga, actualizar la fecha de terminación del contrato
+      if (modificacion.tipo === TipoModificacion.SUSPENSION || modificacion.tipo === TipoModificacion.PRORROGA) {
         const contrato = await queryRunner.manager.findOne(Contrato, {
           where: { id: modificacion.contratoId }
         });

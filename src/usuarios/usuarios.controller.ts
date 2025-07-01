@@ -44,6 +44,30 @@ export class UsuariosController {
   }
 
   /**
+   * Obtiene el perfil del usuario actual
+   */
+  @Get('perfil/me')
+  @ApiOperation({ summary: 'Obtener el perfil del usuario actual' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Perfil del usuario',
+    schema: {
+      example: {
+        cedula: '1234567890',
+        email: 'usuario@medellin.gov.co',
+        nombre: 'Usuario Prueba',
+        rol: 'SUPERVISOR'
+      }
+    }
+  })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  async getProfile(@Request() req) {
+    const usuario = await this.usuariosService.findByCedula(req.user.cedula);
+    const { password, ...result } = usuario;
+    return result;
+  }
+
+  /**
    * Obtiene un usuario por su cédula
    */
   @Get(':cedula')
@@ -66,30 +90,6 @@ export class UsuariosController {
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   async findByCedula(@Param('cedula') cedula: string) {
     const usuario = await this.usuariosService.findByCedula(cedula);
-    const { password, ...result } = usuario;
-    return result;
-  }
-
-  /**
-   * Obtiene el perfil del usuario actual
-   */
-  @Get('perfil/me')
-  @ApiOperation({ summary: 'Obtener el perfil del usuario actual' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Perfil del usuario',
-    schema: {
-      example: {
-        cedula: '1234567890',
-        email: 'usuario@medellin.gov.co',
-        nombre: 'Usuario Prueba',
-        rol: 'SUPERVISOR'
-      }
-    }
-  })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  async getProfile(@Request() req) {
-    const usuario = await this.usuariosService.findByCedula(req.user.cedula);
     const { password, ...result } = usuario;
     return result;
   }

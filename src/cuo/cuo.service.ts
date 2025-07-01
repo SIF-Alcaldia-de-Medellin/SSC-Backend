@@ -9,7 +9,10 @@ import { RolUsuario } from '../usuarios/usuario.entity';
 import { PermissionUtils } from '../auth/utils/permission.utils';
 
 /**
- * Servicio para la gestión de CUO (Centro Único de Obra)
+ * Servicio para la gestión de CUO (Código Único de Obra)
+ * 
+ * Maneja toda la lógica de negocio relacionada con los códigos únicos de obra,
+ * incluyendo operaciones CRUD y validaciones específicas del dominio.
  */
 @Injectable()
 export class CuoService {

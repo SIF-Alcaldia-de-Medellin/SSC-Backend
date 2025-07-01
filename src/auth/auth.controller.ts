@@ -2,6 +2,10 @@ import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
+import { RolUsuario } from '../usuarios/usuario.entity';
 import { CreateUsuarioDto } from '../usuarios/dto/create-usuario.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -19,6 +23,9 @@ export class AuthController {
    * Endpoint para registrar un nuevo usuario
    */
   @Post('register')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolUsuario.ADMIN)
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Registrar un nuevo usuario' })
   @ApiResponse({ 
     status: 201, 
@@ -36,6 +43,8 @@ export class AuthController {
     }
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'Acceso prohibido - Rol no autorizado' })
   @ApiResponse({ status: 409, description: 'El usuario ya existe' })
   async register(@Body() createUsuarioDto: CreateUsuarioDto) {
     return this.authService.register(createUsuarioDto);

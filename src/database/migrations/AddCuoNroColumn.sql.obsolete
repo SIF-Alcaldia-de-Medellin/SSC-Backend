@@ -1,0 +1,9 @@
+-- OBSOLETO: Este cambio ya está incluido en las migraciones TypeORM
+-- Agregar la columna CUO_NRO a la tabla TBL_CUO
+-- ALTER TABLE "SSC"."TBL_CUO"
+-- ADD COLUMN "CUO_NRO" VARCHAR(20) NOT NULL; 
+
+-- NOTA: La estructura correcta está definida en:
+-- 1. src/cuo/cuo.entity.ts
+-- 2. 1750948040447-InitialMigration.ts (migración TypeORM)
+-- 3. 1750948040450-FixEntityDiscrepancies.ts (correcciones) 

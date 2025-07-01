@@ -13,7 +13,7 @@ export class ActividadResponseDto {
   /**
    * ID del CUO al que pertenece la actividad
    */
-  @ApiProperty({ description: 'ID del CUO al que pertenece la actividad' })
+  @ApiProperty({ description: 'ID del Código Único de Obra (CUO) al que pertenece la actividad' })
   cuoId: number;
 
   /**

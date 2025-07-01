@@ -7,9 +7,7 @@ import { Contrato } from '../contratos/contrato.entity';
  */
 export enum TipoModificacion {
   SUSPENSION = 'SUSPENSION',
-  REINICIO = 'REINICIO',
-  PRORROGA = 'PRORROGA',
-  OTRO = 'OTRO'
+  PRORROGA = 'PRORROGA'
 }
 
 /**

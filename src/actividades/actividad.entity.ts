@@ -17,16 +17,16 @@ export class Actividad {
   id: number;
 
   /**
-   * ID del CUO al que pertenece la actividad
+   * ID del CUO al que pertenece esta actividad
    */
-  @ApiProperty({ description: 'ID del CUO al que pertenece la actividad' })
+  @ApiProperty({ description: 'ID del Código Único de Obra (CUO) al que pertenece la actividad' })
   @Column({ name: 'ACT_CUO_ID' })
   cuoId: number;
 
   /**
-   * Relación con el CUO
+   * Información del CUO asociado
    */
-  @ApiProperty({ description: 'Información del CUO asociado' })
+  @ApiProperty({ description: 'Información del Código Único de Obra asociado' })
   @ManyToOne('Cuo', 'actividades', { eager: true })
   @JoinColumn({ name: 'ACT_CUO_ID' })
   cuo: Cuo;

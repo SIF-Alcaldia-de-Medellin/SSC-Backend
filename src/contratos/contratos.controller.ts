@@ -127,4 +127,22 @@ export class ContratosController {
     }
     return this.contratosService.findByUsuario(usuarioCedula, req.user.rol);
   }
+
+  /**
+   * Obtiene un contrato por su número
+   */
+  @Get('numero/:numeroContrato')
+  @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
+  @ApiOperation({ summary: 'Obtener un contrato por número' })
+  @ApiResponse({ 
+    status: 200,
+    description: 'Contrato encontrado',
+    type: ContratoResponseDto
+  })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'Acceso prohibido' })
+  @ApiResponse({ status: 404, description: 'Contrato no encontrado' })
+  findByNumero(@Request() req, @Param('numeroContrato') numeroContrato: string): Promise<ContratoResponseDto> {
+    return this.contratosService.findByNumero(numeroContrato, req.user.cedula, req.user.rol);
+  }
 } 

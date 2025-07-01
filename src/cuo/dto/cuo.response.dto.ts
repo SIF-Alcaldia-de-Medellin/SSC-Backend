@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
- * DTO para la respuesta de CUO (Centro Único de Obra)
+ * DTO para la respuesta de CUO (Código Único de Obra)
  * 
  * Este DTO define la estructura de los datos que se enviarán al cliente
  * cuando se consulte información de CUOs
@@ -10,13 +10,13 @@ export class CuoResponseDto {
   /**
    * Identificador único del CUO
    */
-  @ApiProperty({ description: 'Identificador único del CUO' })
+  @ApiProperty({ description: 'Identificador único del Código Único de Obra (CUO)' })
   id: number;
 
   /**
-   * ID del contrato al que pertenece el CUO
+   * ID del contrato al que pertenece este CUO
    */
-  @ApiProperty({ description: 'ID del contrato al que pertenece el CUO' })
+  @ApiProperty({ description: 'ID del contrato al que pertenece este Código Único de Obra' })
   contratoId: number;
 
   /**
@@ -32,7 +32,7 @@ export class CuoResponseDto {
   /**
    * Número identificador del CUO
    */
-  @ApiProperty({ description: 'Número identificador del CUO' })
+  @ApiProperty({ description: 'Número identificador del Código Único de Obra' })
   numero: string;
 
   /**
@@ -76,7 +76,7 @@ export class CuoResponseDto {
   /**
    * Descripción detallada del CUO
    */
-  @ApiProperty({ description: 'Descripción detallada del CUO' })
+  @ApiProperty({ description: 'Descripción detallada del Código Único de Obra y las actividades a realizar' })
   descripcion: string;
 
   /**

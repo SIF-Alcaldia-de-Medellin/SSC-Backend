@@ -31,7 +31,7 @@ export class ActividadesController {
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'No tienes acceso al CUO especificado' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso al Código Único de Obra especificado' })
   create(@Request() req, @Body() createActividadDto: CreateActividadDto): Promise<ActividadResponseDto> {
     return this.actividadesService.create(createActividadDto, req.user.cedula, req.user.rol);
   }
@@ -108,19 +108,22 @@ export class ActividadesController {
   }
 
   /**
-   * Obtiene todas las actividades de un CUO
+   * Obtiene todas las actividades de un Código Único de Obra (CUO)
    */
   @Get('cuo/:id')
   @Roles(RolUsuario.ADMIN, RolUsuario.SUPERVISOR)
-  @ApiOperation({ summary: 'Obtener actividades por CUO' })
+  @ApiOperation({ 
+    summary: 'Obtener actividades por Código Único de Obra (CUO)',
+    description: 'Lista todas las actividades asociadas a un código único de obra específico'
+  })
   @ApiResponse({ 
     status: 200, 
-    description: 'Lista de actividades del CUO',
+    description: 'Lista de actividades del Código Único de Obra especificado',
     type: [ActividadResponseDto]
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'No tienes acceso a este CUO' })
-  @ApiResponse({ status: 404, description: 'No se encontraron actividades' })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a este Código Único de Obra' })
+  @ApiResponse({ status: 404, description: 'No se encontraron actividades para este Código Único de Obra' })
   findByCuo(@Request() req, @Param('id', ParseIntPipe) cuoId: number): Promise<ActividadResponseDto[]> {
     return this.actividadesService.findByCuo(cuoId, req.user.cedula, req.user.rol);
   }

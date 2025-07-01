@@ -1,15 +1,24 @@
 import { JwtService } from '@nestjs/jwt';
 import { RolUsuario } from '../usuarios/usuario.entity';
+import { EstadoContrato } from '../contratos/contrato.entity';
+import { DataSource } from 'typeorm';
 
 export class TestUtils {
   /**
    * Genera un token JWT para testing
+   * @param jwtService Servicio JWT
+   * @param rol Rol del usuario
+   * @param cedula Cédula del usuario (opcional)
    */
-  static generarToken(jwtService: JwtService, rol: RolUsuario = RolUsuario.ADMIN): string {
+  static generarToken(
+    jwtService: JwtService, 
+    rol: RolUsuario = RolUsuario.ADMIN,
+    cedula: string = '123456789'
+  ): string {
     const payload = {
-      cedula: '123456789',
-      rol: rol,
-      sub: 1
+      sub: cedula,
+      email: `${cedula}@test.com`,
+      rol
     };
     return jwtService.sign(payload);
   }
@@ -19,14 +28,21 @@ export class TestUtils {
    */
   static generarDatosContrato(override: any = {}) {
     return {
-      numeroContrato: '460000123',
-      identificadorSimple: '123-2024',
-      objeto: 'Contrato de prueba para testing',
-      valorTotal: 328000000,
-      fechaInicio: new Date('2024-03-15'),
-      fechaTerminacion: new Date('2024-09-15'),
       usuarioCedula: '123456789',
-      estado: 'ACTIVO',
+      numeroContrato: '1234567890',
+      anoSuscripcion: 2024,
+      programa: 'Programa de Infraestructura Vial',
+      tipoContrato: 'Obra Pública',
+      objeto: 'Contrato de prueba para testing - construcción de vía urbana',
+      identificadorSimple: '123-2024',
+      contratista: 'Constructora Test S.A.S.',
+      numeroProceso: 'LP-001-2024',
+      fechaInicio: new Date('2024-03-15'),
+      fechaTerminacionInicial: new Date('2024-09-15'),
+      fechaTerminacionActual: new Date('2024-09-15'),
+      valorInicial: 1000000000,
+      valorTotal: 1000000000,
+      estado: EstadoContrato.ACTIVO,
       ...override
     };
   }
@@ -98,5 +114,45 @@ export class TestUtils {
       }
     }
     return limpio;
+  }
+
+  /**
+   * Limpia todas las tablas de la base de datos de test de forma segura
+   * maneja las foreign key constraints correctamente
+   */
+  static async limpiarBaseDatos(dataSource: DataSource): Promise<void> {
+    try {
+      const schemaName = process.env.TEST_DB_SCHEMA || 'SSC';
+      
+      // Establecer el schema por defecto
+      await dataSource.query(`SET search_path TO "${schemaName}"`);
+      
+      // Lista de tablas en orden correcto (hijos primero, padres después)
+      const tables = [
+        'TBL_SEGUIMIENTOACTIVIDAD',
+        'TBL_SEGUIMIENTOGENERAL', 
+        'TBL_ACTIVIDADES',
+        'TBL_ADICIONES',
+        'TBL_MODIFICACIONES',
+        'TBL_CUO',
+        'TBL_CONTRATOS',
+        'TBL_USUARIOS'
+      ];
+      
+      // Deshabilitar checks de foreign key temporalmente
+      await dataSource.query('SET session_replication_role = replica;');
+      
+      // Limpiar todas las tablas
+      for (const table of tables) {
+        await dataSource.query(`TRUNCATE TABLE "${schemaName}"."${table}" RESTART IDENTITY CASCADE;`);
+      }
+      
+      // Rehabilitar checks de foreign key
+      await dataSource.query('SET session_replication_role = DEFAULT;');
+      
+    } catch (error) {
+      console.error('Error limpiando base de datos:', error);
+      throw error;
+    }
   }
 } 

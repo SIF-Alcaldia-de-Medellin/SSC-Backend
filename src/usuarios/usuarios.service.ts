@@ -103,4 +103,49 @@ export class UsuariosService {
 
     return usuario;
   }
+
+  /**
+   * Actualiza la contraseña de un usuario y campos relacionados
+   * 
+   * @param cedula - Cédula del usuario
+   * @param hashedPassword - Nueva contraseña ya encriptada
+   * @param mustChangePassword - Si el usuario debe cambiar contraseña en próximo login
+   * @param lastPasswordChange - Fecha del cambio de contraseña
+   * @returns Usuario actualizado sin la contraseña
+   */
+  async updatePassword(
+    cedula: string, 
+    hashedPassword: string, 
+    mustChangePassword: boolean, 
+    lastPasswordChange: Date
+  ): Promise<Omit<Usuario, 'password'>> {
+    try {
+      // Verificar que el usuario existe
+      const usuario = await this.findByCedula(cedula);
+
+      // Actualizar los campos relacionados con la contraseña
+      await this.usuarioRepository.update(cedula, {
+        password: hashedPassword,
+        mustChangePassword: mustChangePassword,
+        lastPasswordChange: lastPasswordChange
+      });
+
+      // Obtener el usuario actualizado
+      const updatedUser = await this.findByCedula(cedula);
+      
+      // Retornar sin la contraseña
+      const { password, ...result } = updatedUser;
+      return result;
+
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      console.error('Error al actualizar contraseña:', error);
+      throw new InternalServerErrorException(
+        'Error al actualizar la contraseña. Por favor, intente nuevamente.'
+      );
+    }
+  }
 } 

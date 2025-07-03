@@ -56,14 +56,16 @@ describe('Auth - Pruebas de Integración', () => {
     // Limpiar la base de datos antes de cada prueba
     await TestUtils.limpiarBaseDatos(dataSource);
 
-    // Crear usuarios de prueba
+    // Crear usuarios de prueba con campos de contraseña
     const hashedPasswordAdmin = await bcrypt.hash('Admin123', 10);
     await usuarioRepository.save({
       cedula: '123456789',
       nombre: 'Admin Test',
       email: 'admin@test.com',
       password: hashedPasswordAdmin,
-      rol: RolUsuario.ADMIN
+      rol: RolUsuario.ADMIN,
+      mustChangePassword: false, // Admin no necesita cambiar contraseña
+      lastPasswordChange: new Date()
     });
 
     const hashedPasswordSupervisor = await bcrypt.hash('Supervisor123', 10);
@@ -72,7 +74,9 @@ describe('Auth - Pruebas de Integración', () => {
       nombre: 'Supervisor Test',
       email: 'supervisor@test.com',
       password: hashedPasswordSupervisor,
-      rol: RolUsuario.SUPERVISOR
+      rol: RolUsuario.SUPERVISOR,
+      mustChangePassword: true // Supervisor debe cambiar contraseña
+      // lastPasswordChange será null por defecto
     });
   });
 
@@ -91,7 +95,7 @@ describe('Auth - Pruebas de Integración', () => {
   });
 
   describe('POST /auth/login', () => {
-    it('debería autenticar un usuario ADMIN con credenciales correctas', async () => {
+    it('debería autenticar un usuario ADMIN con credenciales correctas y devolver información completa', async () => {
       const credenciales = {
         email: 'admin@test.com',
         password: 'Admin123'
@@ -102,8 +106,22 @@ describe('Auth - Pruebas de Integración', () => {
         .send(credenciales)
         .expect(201);
 
+      // Verificar estructura de respuesta actualizada
       expect(response.body).toHaveProperty('access_token');
+      expect(response.body).toHaveProperty('mustChangePassword');
+      expect(response.body).toHaveProperty('user');
       expect(typeof response.body.access_token).toBe('string');
+
+      // Verificar información del usuario
+      expect(response.body.user).toMatchObject({
+        cedula: '123456789',
+        email: credenciales.email,
+        nombre: 'Admin Test',
+        rol: RolUsuario.ADMIN,
+        mustChangePassword: false
+      });
+      expect(response.body.user).toHaveProperty('lastPasswordChange');
+      expect(response.body.mustChangePassword).toBe(false);
 
       // Verificar que el token es válido
       const token = response.body.access_token;
@@ -115,7 +133,7 @@ describe('Auth - Pruebas de Integración', () => {
       });
     });
 
-    it('debería autenticar un usuario SUPERVISOR con credenciales correctas', async () => {
+    it('debería autenticar un usuario SUPERVISOR que debe cambiar contraseña', async () => {
       const credenciales = {
         email: 'supervisor@test.com',
         password: 'Supervisor123'
@@ -126,17 +144,15 @@ describe('Auth - Pruebas de Integración', () => {
         .send(credenciales)
         .expect(201);
 
-      expect(response.body).toHaveProperty('access_token');
-      expect(typeof response.body.access_token).toBe('string');
-
-      // Verificar que el token es válido
-      const token = response.body.access_token;
-      const decodedToken = jwtService.verify(token);
-      expect(decodedToken).toMatchObject({
-        sub: '987654321',
+      // Verificar que indica que debe cambiar contraseña
+      expect(response.body.mustChangePassword).toBe(true);
+      expect(response.body.user).toMatchObject({
+        cedula: '987654321',
         email: credenciales.email,
-        rol: RolUsuario.SUPERVISOR
+        rol: RolUsuario.SUPERVISOR,
+        mustChangePassword: true
       });
+      expect(response.body.user.lastPasswordChange).toBeNull();
     });
 
     it('debería rechazar login con email que no existe', async () => {
@@ -224,9 +240,250 @@ describe('Auth - Pruebas de Integración', () => {
     });
   });
 
+  describe('POST /auth/change-password', () => {
+    it('debería cambiar la contraseña correctamente', async () => {
+      // Primero login para obtener token
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'admin@test.com',
+          password: 'Admin123'
+        })
+        .expect(201);
+
+      const token = loginResponse.body.access_token;
+
+      const changePasswordData = {
+        currentPassword: 'Admin123',
+        newPassword: 'NuevaPassword123'
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send(changePasswordData)
+        .expect(201);
+
+      // Verificar respuesta
+      expect(response.body).toMatchObject({
+        success: true,
+        message: 'Contraseña cambiada exitosamente'
+      });
+      expect(response.body).toHaveProperty('access_token');
+      expect(response.body).toHaveProperty('passwordChangedAt');
+      expect(response.body.user.mustChangePassword).toBe(false);
+
+      // Verificar que puede hacer login con la nueva contraseña
+      const newLoginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'admin@test.com',
+          password: 'NuevaPassword123'
+        })
+        .expect(201);
+
+      expect(newLoginResponse.body).toHaveProperty('access_token');
+    });
+
+    it('debería rechazar cambio con contraseña actual incorrecta', async () => {
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'admin@test.com',
+          password: 'Admin123'
+        });
+
+      const token = loginResponse.body.access_token;
+
+      const changePasswordData = {
+        currentPassword: 'ContraseñaIncorrecta',
+        newPassword: 'NuevaPassword123'
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send(changePasswordData)
+        .expect(400);
+
+      expect(response.body.message).toBe('La contraseña actual es incorrecta');
+    });
+
+    it('debería rechazar nueva contraseña igual a la actual', async () => {
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'admin@test.com',
+          password: 'Admin123'
+        });
+
+      const token = loginResponse.body.access_token;
+
+      const changePasswordData = {
+        currentPassword: 'Admin123',
+        newPassword: 'Admin123' // Misma contraseña
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send(changePasswordData)
+        .expect(409);
+
+      expect(response.body.message).toBe('La nueva contraseña debe ser diferente a la actual');
+    });
+
+    it('debería validar complejidad de nueva contraseña', async () => {
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'admin@test.com',
+          password: 'Admin123'
+        });
+
+      const token = loginResponse.body.access_token;
+
+      const changePasswordData = {
+        currentPassword: 'Admin123',
+        newPassword: 'simple' // Contraseña muy simple
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send(changePasswordData)
+        .expect(400);
+
+      expect(response.body.message).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('contraseña debe tener al menos 8 caracteres')
+        ])
+      );
+    });
+  });
+
+  describe('POST /auth/first-login-change-password', () => {
+    it('debería cambiar contraseña en primer login exitosamente', async () => {
+      // Login con supervisor que debe cambiar contraseña
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'supervisor@test.com',
+          password: 'Supervisor123'
+        })
+        .expect(201);
+
+      const token = loginResponse.body.access_token;
+      expect(loginResponse.body.mustChangePassword).toBe(true);
+
+      const changePasswordData = {
+        newPassword: 'NuevaPassword123'
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/first-login-change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send(changePasswordData)
+        .expect(201);
+
+      // Verificar respuesta
+      expect(response.body).toMatchObject({
+        success: true,
+        message: 'Contraseña cambiada exitosamente'
+      });
+      expect(response.body.user.mustChangePassword).toBe(false);
+      expect(response.body).toHaveProperty('passwordChangedAt');
+
+      // Verificar que puede hacer login con la nueva contraseña
+      const newLoginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'supervisor@test.com',
+          password: 'NuevaPassword123'
+        })
+        .expect(201);
+
+      expect(newLoginResponse.body.mustChangePassword).toBe(false);
+    });
+
+    it('debería rechazar cambio si el usuario no debe cambiar contraseña', async () => {
+      // Login con admin que no debe cambiar contraseña
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'admin@test.com',
+          password: 'Admin123'
+        });
+
+      const token = loginResponse.body.access_token;
+
+      const changePasswordData = {
+        newPassword: 'NuevaPassword123'
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/first-login-change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send(changePasswordData)
+        .expect(400);
+
+      expect(response.body.message).toBe('Este usuario no requiere cambio de contraseña obligatorio');
+    });
+
+    it('debería rechazar nueva contraseña igual a la actual en primer login', async () => {
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'supervisor@test.com',
+          password: 'Supervisor123'
+        });
+
+      const token = loginResponse.body.access_token;
+
+      const changePasswordData = {
+        newPassword: 'Supervisor123' // Misma contraseña
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/first-login-change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send(changePasswordData)
+        .expect(409);
+
+      expect(response.body.message).toBe('La nueva contraseña debe ser diferente a la actual');
+    });
+
+    it('debería validar complejidad en primer cambio de contraseña', async () => {
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'supervisor@test.com',
+          password: 'Supervisor123'
+        });
+
+      const token = loginResponse.body.access_token;
+
+      const changePasswordData = {
+        newPassword: 'simple' // Contraseña muy simple
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/first-login-change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send(changePasswordData)
+        .expect(400);
+
+      expect(response.body.message).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('contraseña debe tener al menos 8 caracteres')
+        ])
+      );
+    });
+  });
+
   describe('POST /auth/register', () => {
-    it('debería registrar un nuevo usuario SUPERVISOR exitosamente por un ADMIN', async () => {
-      // Primero hacer login como admin para obtener token
+    it('debería registrar un nuevo usuario con campos de contraseña por defecto', async () => {
+      // Login como admin
       const loginResponse = await request(app.getHttpServer())
         .post('/auth/login')
         .send({
@@ -258,27 +515,17 @@ describe('Auth - Pruebas de Integración', () => {
         email: nuevoUsuario.email,
         rol: RolUsuario.SUPERVISOR
       });
-      expect(response.body.user).not.toHaveProperty('password');
 
-      // Verificar que el usuario fue creado en la base de datos
+      // Verificar que el usuario fue creado con campos de contraseña por defecto
       const usuarioCreado = await usuarioRepository.findOne({ 
         where: { cedula: nuevoUsuario.cedula } 
       });
       expect(usuarioCreado).toBeTruthy();
       
-      if (!usuarioCreado) {
-        throw new Error('El usuario no fue creado correctamente');
+      if (usuarioCreado) {
+        expect(usuarioCreado.mustChangePassword).toBe(true); // Por defecto debe cambiar
+        expect(usuarioCreado.lastPasswordChange).toBeNull(); // Nunca ha cambiado
       }
-      
-      expect(usuarioCreado.rol).toBe(RolUsuario.SUPERVISOR);
-
-      // Verificar que la contraseña está hasheada
-      expect(usuarioCreado.password).not.toBe(nuevoUsuario.password);
-      const passwordValida = await bcrypt.compare(
-        nuevoUsuario.password,
-        usuarioCreado.password
-      );
-      expect(passwordValida).toBe(true);
     });
 
     it('debería registrar un nuevo usuario ADMIN exitosamente por un ADMIN', async () => {

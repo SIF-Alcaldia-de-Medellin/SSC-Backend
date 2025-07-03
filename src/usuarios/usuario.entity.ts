@@ -61,6 +61,30 @@ export class Usuario {
   nombre: string;
 
   /**
+   * Indica si el usuario debe cambiar su contraseña en el próximo login
+   * - true: El usuario debe cambiar contraseña (primer login o política de seguridad)
+   * - false: El usuario puede usar su contraseña actual
+   */
+  @Column('boolean', { 
+    name: 'USU_MUST_CHANGE_PASSWORD', 
+    default: true,
+    comment: 'Indica si el usuario debe cambiar su contraseña en el próximo login'
+  })
+  mustChangePassword: boolean;
+
+  /**
+   * Fecha y hora del último cambio de contraseña
+   * Se actualiza cada vez que el usuario cambia su contraseña
+   * NULL si nunca ha cambiado la contraseña desde la creación
+   */
+  @Column('timestamp', { 
+    name: 'USU_LAST_PASSWORD_CHANGE', 
+    nullable: true,
+    comment: 'Fecha y hora del último cambio de contraseña'
+  })
+  lastPasswordChange: Date;
+
+  /**
    * Fecha de creación del registro
    * Se genera automáticamente
    */

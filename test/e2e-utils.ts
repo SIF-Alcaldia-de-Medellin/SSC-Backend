@@ -7,11 +7,20 @@ import { Usuario } from '../src/usuarios/usuario.entity';
 import * as bcrypt from 'bcrypt';
 
 export class E2EUtils {
+  private static uniqueCounter = 0;
+
   constructor(
     private readonly app: INestApplication,
     private readonly jwtService: JwtService,
     private readonly usuarioRepository: Repository<Usuario>
   ) {}
+
+  // Generar cédula única para cada prueba
+  private generateUniqueCedula(): string {
+    const timestamp = Date.now().toString().slice(-6); // Últimos 6 dígitos del timestamp
+    const counter = (++E2EUtils.uniqueCounter).toString().padStart(3, '0'); // Counter con padding
+    return `${timestamp}${counter}`; // 9 dígitos únicos
+  }
 
   async loginUser(cedula: string, password: string) {
     const email = `${cedula}@test.com`;
@@ -38,26 +47,61 @@ export class E2EUtils {
     password: string,
     rol: RolUsuario,
     nombre = 'Test',
-    apellido = 'User'
+    apellido = 'User' // Parámetro mantenido para compatibilidad
   ) {
     const hashedPassword = await bcrypt.hash(password, 10);
     const email = `${cedula}@test.com`;
+    
+    // Crear usuario con los campos correctos de la entidad Usuario
     const usuario = await this.usuarioRepository.save({
       cedula,
       password: hashedPassword,
       rol,
-      nombre,
-      apellido,
-      email
+      nombre: `${nombre} ${apellido}`, // Combinar nombre y apellido en el campo nombre
+      email,
+      mustChangePassword: true // Por defecto debe cambiar contraseña
+      // lastPasswordChange se dejará como undefined/null automáticamente
     });
 
     console.log('Usuario creado:', {
-      ...usuario,
+      cedula: usuario.cedula,
+      email: usuario.email,
+      rol: usuario.rol,
+      nombre: usuario.nombre,
+      mustChangePassword: usuario.mustChangePassword,
+      lastPasswordChange: usuario.lastPasswordChange,
+      createdAt: usuario.createdAt,
       password: '[HIDDEN]',
       originalPassword: password
     });
 
+    // Pequeña pausa para asegurar que la transacción se complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     return usuario;
+  }
+
+  // Método helper para crear usuarios con cédulas únicas automáticas
+  async createUniqueTestUser(
+    password: string,
+    rol: RolUsuario,
+    nombre = 'Test',
+    apellido = 'User'
+  ) {
+    const uniqueCedula = this.generateUniqueCedula();
+    return this.createTestUser(uniqueCedula, password, rol, nombre, apellido);
+  }
+
+  // Método que crea un usuario único y devuelve token + usuario
+  async createAndLoginUniqueUser(
+    password: string,
+    rol: RolUsuario,
+    nombre = 'Test',
+    apellido = 'User'
+  ) {
+    const usuario = await this.createUniqueTestUser(password, rol, nombre, apellido);
+    const token = await this.loginUser(usuario.cedula, password);
+    return { usuario, token };
   }
 
   async createContrato(token: string, data: any) {
@@ -128,7 +172,7 @@ export class E2EUtils {
     return response.body;
   }
 
-  generateTestData() {
+  generateTestData(usuarioCedula?: string) {
     const today = new Date();
     const futureDate = new Date();
     futureDate.setMonth(futureDate.getMonth() + 6);
@@ -140,7 +184,7 @@ export class E2EUtils {
 
     return {
       contrato: {
-        usuarioCedula: '', // Se asignará dinámicamente en el test
+        usuarioCedula: usuarioCedula || this.generateUniqueCedula(), // Usar cédula única si no se especifica
         numeroContrato: contractNumber, // Exactamente 10 dígitos únicos
         anoSuscripcion: new Date().getFullYear(),
         programa: 'Programa de Infraestructura',

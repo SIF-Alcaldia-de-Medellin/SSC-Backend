@@ -8,11 +8,14 @@ import { Roles } from './decorators/roles.decorator';
 import { RolUsuario } from '../usuarios/usuario.entity';
 import { CreateUsuarioDto } from '../usuarios/dto/create-usuario.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { FirstLoginChangePasswordDto } from './dto/first-login-change-password.dto';
+import { ChangePasswordResponseDto } from './dto/change-password-response.dto';
 
 /**
  * Controlador de autenticación
  * 
- * Maneja los endpoints de registro y login
+ * Maneja los endpoints de registro, login y cambio de contraseñas
  */
 @ApiTags('Autenticación')
 @Controller('auth')
@@ -61,12 +64,65 @@ export class AuthController {
     description: 'Login exitoso',
     schema: {
       example: {
-        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        mustChangePassword: true,
+        user: {
+          cedula: '1234567890',
+          email: 'usuario@medellin.gov.co',
+          nombre: 'Usuario Prueba',
+          rol: 'SUPERVISOR',
+          mustChangePassword: true,
+          lastPasswordChange: null
+        }
       }
     }
   })
   @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  /**
+   * Endpoint para cambio de contraseña estándar (requiere contraseña actual)
+   */
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ 
+    summary: 'Cambiar contraseña (requiere contraseña actual)',
+    description: 'Permite al usuario cambiar su contraseña proporcionando la contraseña actual'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Contraseña cambiada exitosamente',
+    type: ChangePasswordResponseDto
+  })
+  @ApiResponse({ status: 400, description: 'Contraseña actual incorrecta o datos inválidos' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 409, description: 'La nueva contraseña debe ser diferente a la actual' })
+  async changePassword(@Request() req, @Body() changePasswordDto: ChangePasswordDto): Promise<ChangePasswordResponseDto> {
+    return this.authService.changePassword(req.user.cedula, changePasswordDto);
+  }
+
+  /**
+   * Endpoint para cambio de contraseña en primer login (no requiere contraseña actual)
+   */
+  @Post('first-login-change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ 
+    summary: 'Cambiar contraseña en primer login',
+    description: 'Permite cambiar la contraseña cuando el usuario debe hacerlo obligatoriamente (primer login o política de seguridad)'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Contraseña cambiada exitosamente',
+    type: ChangePasswordResponseDto
+  })
+  @ApiResponse({ status: 400, description: 'El usuario no requiere cambio obligatorio o datos inválidos' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 409, description: 'La nueva contraseña debe ser diferente a la actual' })
+  async firstLoginChangePassword(@Request() req, @Body() firstLoginChangePasswordDto: FirstLoginChangePasswordDto): Promise<ChangePasswordResponseDto> {
+    return this.authService.firstLoginChangePassword(req.user.cedula, firstLoginChangePasswordDto);
   }
 } 

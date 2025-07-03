@@ -47,14 +47,16 @@ describe('Usuarios - Pruebas de Integración', () => {
     // Limpiar la base de datos antes de cada prueba
     await TestUtils.limpiarBaseDatos(dataSource);
 
-    // Crear usuario administrador por defecto
+    // Crear usuario administrador por defecto con campos de contraseña
     const hashedPassword = await bcrypt.hash('Admin123', 10);
     await usuarioRepository.save({
       cedula: '111111111',
       nombre: 'Admin Test',
       email: 'admin@test.com',
       password: hashedPassword,
-      rol: RolUsuario.ADMIN
+      rol: RolUsuario.ADMIN,
+      mustChangePassword: false, // Admin no necesita cambiar contraseña
+      lastPasswordChange: new Date()
     });
   });
 

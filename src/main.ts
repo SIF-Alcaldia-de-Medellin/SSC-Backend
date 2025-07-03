@@ -19,11 +19,12 @@ async function bootstrap() {
   
   const app = await NestFactory.create(AppModule);
 
-  // Configuración de CORS
+  // Variables de configuración
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  
+  // Configuración de CORS - Abierto hasta definir URL final de despliegue
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production' 
-      ? ['https://ssc.medellin.gov.co', 'https://admin-ssc.medellin.gov.co']
-      : true, // En desarrollo permite cualquier origen
+    origin: true, // Permite cualquier origen
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,
@@ -77,9 +78,10 @@ async function bootstrap() {
     )
     .setLicense('MIT', 'https://opensource.org/licenses/MIT');
 
-  // Solo agregar servidor en desarrollo
-  if (process.env.NODE_ENV !== 'production') {
-    builder.addServer('http://localhost:3000', 'Servidor de desarrollo');
+  // Solo agregar servidor en desarrollo  
+  const port = process.env.PORT || 3000;
+  if (nodeEnv !== 'production') {
+    builder.addServer(`http://localhost:${port}`, 'Servidor de desarrollo');
   }
 
   builder.addBearerAuth(
@@ -120,11 +122,17 @@ async function bootstrap() {
   });
 
   // Iniciar servidor
-  const port = process.env.PORT || 3000;
+  const host = process.env.HOST || 'localhost';
+  const baseUrl = nodeEnv === 'production' 
+    ? (process.env.APP_URL || `http://${host}:${port}`)
+    : `http://${host}:${port}`;
+    
   await app.listen(port);
   console.log(`🚀 Aplicación corriendo en puerto ${port}`);
-  console.log(`📚 Documentación disponible en http://localhost:${port}/docs`);
-  console.log(`🔍 Health check en http://localhost:${port}/health`);
-  console.log(`ℹ️  Info de la API en http://localhost:${port}/info`);
+  console.log(`🌍 Entorno: ${nodeEnv}`);
+  console.log(`📚 Documentación disponible en ${baseUrl}/docs`);
+  console.log(`🔍 Health check en ${baseUrl}/health`);
+  console.log(`ℹ️  Info de la API en ${baseUrl}/info`);
+  console.log(`🔓 CORS completamente abierto - Acceso desde cualquier origen permitido`);
 }
 bootstrap();

@@ -98,8 +98,10 @@ describe('Seguimiento General - Pruebas de Integración', () => {
         .expect(201);
 
       expect(response.body).toMatchObject({
-        valorEjecutado: datosSeguimiento.avanceFinanciero,
+        valorEjecutado: datosSeguimiento.avanceFinanciero, // Primer seguimiento, mismo valor individual y acumulado
+        valorEjecutadoIndividual: datosSeguimiento.avanceFinanciero,
         avanceFisico: datosSeguimiento.avanceFisico,
+        avanceFisicoIndividual: datosSeguimiento.avanceFisico,
         avanceFinanciero: Number((datosSeguimiento.avanceFinanciero / valorTotalContrato * 100).toFixed(2)),
         observaciones: datosSeguimiento.observaciones,
       });
@@ -159,6 +161,71 @@ describe('Seguimiento General - Pruebas de Integración', () => {
         .send(datosSeguimiento)
         .expect(400);
     });
+
+    it('debería rechazar seguimiento cuando el avance físico acumulado supera el 100%', async () => {
+      // Crear primer seguimiento con 80% de avance físico
+      await request(app.getHttpServer())
+        .post('/seguimiento-general')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          contratoId,
+          avanceFinanciero: 100000000,
+          avanceFisico: 80.0,
+          observaciones: 'Primer seguimiento - 80%'
+        })
+        .expect(201);
+
+      // Intentar crear segundo seguimiento que haría superar el 100%
+      const segundoSeguimiento = {
+        contratoId,
+        avanceFinanciero: 50000000,
+        avanceFisico: 25.0, // 80% + 25% = 105% > 100%
+        observaciones: 'Segundo seguimiento que supera límite'
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/seguimiento-general')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(segundoSeguimiento)
+        .expect(400);
+
+      expect(response.body.message).toContain('El avance físico acumulado no puede superar el 100%');
+      expect(response.body.message).toContain('Avance actual: 80.00%');
+      expect(response.body.message).toContain('Nuevo avance: 25.00%');
+      expect(response.body.message).toContain('Total resultante: 105.00%');
+      expect(response.body.message).toContain('Máximo permitido: 20.00%');
+    });
+
+    it('debería permitir seguimiento cuando el avance físico acumulado alcanza exactamente el 100%', async () => {
+      // Crear primer seguimiento con 70% de avance físico
+      await request(app.getHttpServer())
+        .post('/seguimiento-general')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          contratoId,
+          avanceFinanciero: 100000000,
+          avanceFisico: 70.0,
+          observaciones: 'Primer seguimiento - 70%'
+        })
+        .expect(201);
+
+      // Crear segundo seguimiento que completa exactamente el 100%
+      const segundoSeguimiento = {
+        contratoId,
+        avanceFinanciero: 50000000,
+        avanceFisico: 30.0, // 70% + 30% = 100%
+        observaciones: 'Segundo seguimiento que completa el 100%'
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/seguimiento-general')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(segundoSeguimiento)
+        .expect(201);
+
+      expect(response.body.avanceFisico).toBe(100.0);
+      expect(response.body.avanceFisicoIndividual).toBe(30.0);
+    });
   });
 
   describe('GET /seguimiento-general/contrato/:id', () => {
@@ -184,8 +251,11 @@ describe('Seguimiento General - Pruebas de Integración', () => {
         .expect(200);
 
       expect(response.body).toHaveLength(2);
-      expect(response.body[0].valorEjecutado).toBe(seguimiento2.avanceFinanciero);
-      expect(response.body[1].valorEjecutado).toBe(seguimiento1.avanceFinanciero);
+      // Verificar valores acumulados correctos (seguimiento más reciente primero)
+      expect(response.body[0].valorEjecutado).toBe(250000000); // 100000000 + 150000000 (acumulado)
+      expect(response.body[0].valorEjecutadoIndividual).toBe(seguimiento2.avanceFinanciero); // 150000000 (individual)
+      expect(response.body[1].valorEjecutado).toBe(100000000); // 100000000 (acumulado hasta ese punto)
+      expect(response.body[1].valorEjecutadoIndividual).toBe(seguimiento1.avanceFinanciero); // 100000000 (individual)
     });
 
     it('debería obtener solo seguimientos de contratos asignados como SUPERVISOR', async () => {

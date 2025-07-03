@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import { SeguimientoGeneral } from './seguimiento-general.entity';
 import { Contrato } from '../contratos/contrato.entity';
 import { CreateSeguimientoGeneralDto } from './dto/create-seguimiento-general.dto';
@@ -69,7 +69,7 @@ export class SeguimientoGeneralService {
    * Transforma una entidad SeguimientoGeneral en un DTO de respuesta
    * @throws NotFoundException si el seguimiento es nulo
    */
-  private toResponseDto(seguimiento: SeguimientoGeneral): SeguimientoGeneralResponseDto {
+  private async toResponseDto(seguimiento: SeguimientoGeneral): Promise<SeguimientoGeneralResponseDto> {
     if (!seguimiento) {
       throw new NotFoundException('No se puede convertir un seguimiento nulo a DTO');
     }
@@ -80,25 +80,45 @@ export class SeguimientoGeneralService {
       throw new NotFoundException('No se encontró el contrato asociado al seguimiento');
     }
 
-    // Asegurar que los valores sean números
-    const valorEjecutado = Number(seguimiento.avanceFinanciero);
+    // Valores individuales del seguimiento actual
+    const valorEjecutadoIndividual = Number(seguimiento.avanceFinanciero);
+    const avanceFisicoIndividual = Number(seguimiento.avanceFisico);
     const valorTotal = Number(contrato.valorTotal);
-    const avanceFisico = Number(seguimiento.avanceFisico);
 
-    // Calcular el porcentaje de avance financiero
-    const avanceFinanciero = this.calcularPorcentajeFinanciero(valorEjecutado, valorTotal);
+    // Calcular valores acumulados incluyendo este seguimiento
+    const valorEjecutadoAcumulado = await this.calcularValorEjecutadoAcumulado(
+      seguimiento.contratoId,
+      seguimiento.createdAt,
+      seguimiento
+    );
+
+    const avanceFisicoAcumulado = await this.calcularAvanceFisicoAcumulado(
+      seguimiento.contratoId,
+      seguimiento.createdAt,
+      seguimiento
+    );
+
+    // Calcular porcentajes basados en valores acumulados
+    const porcentajeFinanciero = this.calcularPorcentajeFinanciero(valorEjecutadoAcumulado, valorTotal);
+    
+    // Para avance físico asumimos que 100% es la meta (se podría parametrizar si se necesita)
+    const porcentajeFisico = avanceFisicoAcumulado; // Ya viene como porcentaje
 
     // Calcular la diferencia entre avance físico y financiero
-    const diferenciaAvance = Number((avanceFisico - avanceFinanciero).toFixed(2));
+    const diferenciaAvance = Number((porcentajeFisico - porcentajeFinanciero).toFixed(2));
 
     // Calcular el estado del avance
     const estadoAvance = this.determinarEstadoAvance(diferenciaAvance);
 
     return {
       ...seguimientoData,
-      valorEjecutado: valorEjecutado,
-      avanceFinanciero: Number(avanceFinanciero.toFixed(2)),
-      avanceFisico: Number(avanceFisico.toFixed(2)),
+      // Valores individuales de este seguimiento
+      valorEjecutadoIndividual: valorEjecutadoIndividual,
+      avanceFisicoIndividual: avanceFisicoIndividual,
+      // Valores acumulados hasta esta fecha
+      valorEjecutado: valorEjecutadoAcumulado,
+      avanceFinanciero: Number(porcentajeFinanciero.toFixed(2)),
+      avanceFisico: Number(porcentajeFisico.toFixed(2)),
       contrato: {
         numeroContrato: contrato.numeroContrato,
         identificadorSimple: contrato.identificadorSimple,
@@ -110,9 +130,9 @@ export class SeguimientoGeneralService {
       diferenciaAvance,
       estadoAvance,
       fechaUltimaModificacion: seguimiento.createdAt,
-      resumenEstado: `${estadoAvance}: Avance físico ${avanceFisico.toFixed(2)}% vs. financiero ${avanceFinanciero.toFixed(2)}% ` +
+      resumenEstado: `${estadoAvance}: Avance físico ${porcentajeFisico.toFixed(2)}% vs. financiero ${porcentajeFinanciero.toFixed(2)}% ` +
         `(diferencia: ${diferenciaAvance > 0 ? '+' : ''}${diferenciaAvance}%). ` +
-        `Valor ejecutado: ${valorEjecutado.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} ` +
+        `Valor ejecutado acumulado: ${valorEjecutadoAcumulado.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} ` +
         `de ${valorTotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}`
     };
   }
@@ -154,6 +174,23 @@ export class SeguimientoGeneralService {
       contrato.valorTotal
     );
 
+    // Validar que el avance físico acumulado no supere el 100%
+    const avanceFisicoAcumuladoActual = await this.calcularAvanceFisicoAcumulado(
+      createSeguimientoGeneralDto.contratoId
+    );
+    
+    const nuevoAvanceFisicoAcumulado = avanceFisicoAcumuladoActual + Number(createSeguimientoGeneralDto.avanceFisico);
+    
+    if (nuevoAvanceFisicoAcumulado > 100) {
+      throw new BadRequestException(
+        `El avance físico acumulado no puede superar el 100%. ` +
+        `Avance actual: ${avanceFisicoAcumuladoActual.toFixed(2)}%, ` +
+        `Nuevo avance: ${Number(createSeguimientoGeneralDto.avanceFisico).toFixed(2)}%, ` +
+        `Total resultante: ${nuevoAvanceFisicoAcumulado.toFixed(2)}%. ` +
+        `Máximo permitido: ${(100 - avanceFisicoAcumuladoActual).toFixed(2)}%`
+      );
+    }
+
     const seguimiento = this.seguimientoGeneralRepository.create({
       ...createSeguimientoGeneralDto,
       avanceFinanciero: Number(createSeguimientoGeneralDto.avanceFinanciero),
@@ -172,7 +209,87 @@ export class SeguimientoGeneralService {
       throw new NotFoundException(`Error al cargar el seguimiento creado con ID ${savedSeguimiento.id}`);
     }
 
-    return this.toResponseDto(seguimientoConContrato);
+    return await this.toResponseDto(seguimientoConContrato);
+  }
+
+  /**
+   * Calcula el valor ejecutado acumulado hasta un seguimiento específico
+   * @param contratoId ID del contrato
+   * @param fechaLimite Fecha límite para el cálculo (opcional)
+   * @param seguimientoActual Seguimiento actual para incluir en el cálculo (opcional)
+   */
+  private async calcularValorEjecutadoAcumulado(
+    contratoId: number,
+    fechaLimite?: Date,
+    seguimientoActual?: SeguimientoGeneral
+  ): Promise<number> {
+    const seguimientosAnteriores = await this.seguimientoGeneralRepository.find({
+      where: {
+        contratoId,
+        ...(fechaLimite && { createdAt: LessThanOrEqual(fechaLimite) })
+      },
+      order: {
+        createdAt: 'ASC'
+      }
+    });
+
+    // Sumar todos los valores ejecutados anteriores
+    const valorTotal = seguimientosAnteriores.reduce((sum, seg) => {
+      const valor = typeof seg.avanceFinanciero === 'string' ? 
+        parseFloat(seg.avanceFinanciero) : 
+        Number(seg.avanceFinanciero);
+      return sum + (isNaN(valor) ? 0 : valor);
+    }, 0);
+
+    // Si hay un seguimiento actual, incluirlo en el cálculo
+    if (seguimientoActual) {
+      const valorActual = typeof seguimientoActual.avanceFinanciero === 'string' ?
+        parseFloat(seguimientoActual.avanceFinanciero) :
+        Number(seguimientoActual.avanceFinanciero);
+      return valorTotal + (isNaN(valorActual) ? 0 : valorActual);
+    }
+
+    return valorTotal;
+  }
+
+  /**
+   * Calcula el avance físico acumulado hasta un seguimiento específico
+   * @param contratoId ID del contrato
+   * @param fechaLimite Fecha límite para el cálculo (opcional)
+   * @param seguimientoActual Seguimiento actual para incluir en el cálculo (opcional)
+   */
+  private async calcularAvanceFisicoAcumulado(
+    contratoId: number,
+    fechaLimite?: Date,
+    seguimientoActual?: SeguimientoGeneral
+  ): Promise<number> {
+    const seguimientosAnteriores = await this.seguimientoGeneralRepository.find({
+      where: {
+        contratoId,
+        ...(fechaLimite && { createdAt: LessThanOrEqual(fechaLimite) })
+      },
+      order: {
+        createdAt: 'ASC'
+      }
+    });
+
+    // Sumar todos los avances físicos anteriores
+    const avanceTotal = seguimientosAnteriores.reduce((sum, seg) => {
+      const avance = typeof seg.avanceFisico === 'string' ? 
+        parseFloat(seg.avanceFisico) : 
+        Number(seg.avanceFisico);
+      return sum + (isNaN(avance) ? 0 : avance);
+    }, 0);
+
+    // Si hay un seguimiento actual, incluirlo en el cálculo
+    if (seguimientoActual) {
+      const avanceActual = typeof seguimientoActual.avanceFisico === 'string' ?
+        parseFloat(seguimientoActual.avanceFisico) :
+        Number(seguimientoActual.avanceFisico);
+      return avanceTotal + (isNaN(avanceActual) ? 0 : avanceActual);
+    }
+
+    return avanceTotal;
   }
 
   /**
@@ -195,7 +312,7 @@ export class SeguimientoGeneralService {
 
     const seguimientos = await this.seguimientoGeneralRepository.find({
       where: { contratoId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'ASC' }, // Ordenar ascendente para calcular acumulados
       relations: ['contrato']
     });
 
@@ -203,7 +320,12 @@ export class SeguimientoGeneralService {
       throw new NotFoundException(`No se encontraron seguimientos para el contrato ${contratoId}`);
     }
 
-    return seguimientos.map(seguimiento => this.toResponseDto(seguimiento));
+    // Convertir cada seguimiento a DTO con valores acumulados
+    const seguimientosResponse = await Promise.all(
+      seguimientos.map(seguimiento => this.toResponseDto(seguimiento))
+    );
+    
+    return seguimientosResponse.reverse(); // Mostrar el más reciente primero
   }
 
   /**
@@ -237,14 +359,19 @@ export class SeguimientoGeneralService {
       .createQueryBuilder('seguimiento')
       .innerJoinAndSelect('seguimiento.contrato', 'contrato')
       .where('contrato.numeroContrato = :numeroContrato', { numeroContrato })
-      .orderBy('seguimiento.createdAt', 'DESC')
+      .orderBy('seguimiento.createdAt', 'ASC') // Ordenar ascendente para calcular acumulados
       .getMany();
 
     if (!seguimientos.length) {
       throw new NotFoundException(`No se encontraron seguimientos para el contrato número ${numeroContrato}`);
     }
 
-    return seguimientos.map(seguimiento => this.toResponseDto(seguimiento));
+    // Convertir cada seguimiento a DTO con valores acumulados
+    const seguimientosResponse = await Promise.all(
+      seguimientos.map(seguimiento => this.toResponseDto(seguimiento))
+    );
+    
+    return seguimientosResponse.reverse(); // Mostrar el más reciente primero
   }
 
   /**
@@ -274,6 +401,8 @@ export class SeguimientoGeneralService {
       this.contratoRepository
     );
 
-    return this.toResponseDto(seguimiento);
+    return await this.toResponseDto(seguimiento);
   }
+
+
 } 

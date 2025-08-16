@@ -1,0 +1,17 @@
+name: Deploy to Azure DevOps
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to Azure DevOps
+        uses: SIF-Alcaldia-de-Medellin/actions-upload-repo-azure-devops@v1
+        with:
+          azure_pat: ${{ secrets.TOKEN_AZ_DEVOPS }}
+          azure_repo_url: dev.azure.com/AlcaldiaMedellin/Secretaría%20de%20Infraestructura%20Física/_git/SSC-backend

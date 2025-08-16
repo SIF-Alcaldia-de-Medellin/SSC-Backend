@@ -141,4 +141,3 @@ Para reportar problemas o solicitar ayuda, por favor crea un issue en el reposit
 Este proyecto está licenciado bajo [LICENCIA]. Consulta el archivo LICENSE para más detalles.
 
 
-Testeo commit from github in qa branch
